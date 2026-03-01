@@ -116,12 +116,15 @@ The encoder learns local appearance-sensitive measurements (edges, corners, text
 
 ### 2.2 Spatial
 
-Spatial information at this level is topological adjacency and continuity. With lattice coordinates $p^{(\ell)}_{i,j}$, topology alignment can be stated operationally as
+Spatial information at this level is topological adjacency and continuity. 
+With lattice coordinates $p^{(\ell)}_{i,j}$, topology alignment can be stated operationally as
+
 $$
-\|F_t^{(\ell)}(i,j) - F_t^{(\ell)}(i',j')\|
+\left\| F_t^{(\ell)}(i,j) - F_t^{(\ell)}(i',j') \right\|
 \le
-L_\ell \|p_{i,j}^{(\ell)} - p_{i',j'}^{(\ell)}\|.
+L_\ell \left\| p_{i,j}^{(\ell)} - p_{i',j'}^{(\ell)} \right\|.
 $$
+
 This encodes continuity without metric reconstruction.
 
 ### 2.3 Visual–Spatial Coupling
