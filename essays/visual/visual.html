@@ -159,20 +159,23 @@ Coupling is enforced by transport equivariance and multi-step rollout consistenc
 With a locality-biased transport operator $\mathcal{T}^{(\ell)}$, define the rollout as
 
 $$
+\[
 \widehat{F}_{t+s}^{(\ell)}
 =
 \mathcal{T}^{(\ell)}
-\!\left(
+\left(
 \widehat{F}_{t+s-1}^{(\ell)},
 F_{t+s}^{(\ell)}
 \right),
 \qquad
 \widehat{F}_t^{(\ell)} = F_t^{(\ell)}.
+\]
 $$
 
 The co-learning constraint is that rollout remains accurate for nontrivial horizons:
 
 $$
+\[
 \left\|
 \widehat{F}_{t+s}^{(\ell)}
 -
@@ -182,6 +185,7 @@ F_{t+s}^{(\ell)}
 \varepsilon,
 \qquad
 \text{for } s \le S.
+\]
 $$
 
 This forces appearance channels to become motion-compatible, because unstable visual codes cannot satisfy long-horizon transport consistency.
