@@ -38,36 +38,33 @@
 <body>
   <div id="content">Loading…</div>
 
+  <!-- Put your Markdown here -->
+  <script id="md-source" type="text/markdown">
+---
+title: Geometry Before Abstraction
+---
+
+![Banner](banner.jpg)
+
+# Geometry Before Abstraction
+## Multi-Scale Visual–Spatial Co-Learning
+
+... paste the FULL content of visual.md here ...
+(with $...$ and $$...$$ math)
+  </script>
+
   <script>
-    async function render() {
-      const res = await fetch('./visual.md', { cache: 'no-store' });
-      if (!res.ok) {
-        document.getElementById('content').textContent =
-          `Failed to load visual.md (HTTP ${res.status}). Check file path.`;
-        return;
-      }
+    window.addEventListener('DOMContentLoaded', async () => {
+      const raw = document.getElementById('md-source').textContent;
 
-      const md = await res.text();
+      // Remove YAML front matter (optional)
+      const md = raw.replace(/^---[\s\S]*?---\s*/m, '');
 
-      // Remove YAML front matter if present
-      const cleaned = md.replace(/^---[\s\S]*?---\s*/m, '');
+      document.getElementById('content').innerHTML = marked.parse(md);
 
-      // Render Markdown -> HTML (marked is now guaranteed loaded)
-      document.getElementById('content').innerHTML = marked.parse(cleaned);
-
-      // Typeset math (MathJax is now guaranteed loaded)
       if (window.MathJax && MathJax.typesetPromise) {
         await MathJax.typesetPromise();
       }
-    }
-
-    // Ensure deferred scripts have loaded before calling marked.parse(...)
-    window.addEventListener('DOMContentLoaded', () => {
-      render().catch(err => {
-        document.getElementById('content').textContent =
-          'Render error. Open browser console for details.';
-        console.error(err);
-      });
     });
   </script>
 </body>
