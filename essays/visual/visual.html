@@ -22,23 +22,28 @@
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      max-width: 800px;
+      max-width: 900px;
       margin: 60px auto;
-      line-height: 1.6;
+      line-height: 1.7;
       color: #222;
     }
-    h1 { font-size: 2.2em; }
-    h2 { margin-top: 40px; }
+    h1 { font-size: 2.2em; margin-bottom: 0.2em; }
+    h2 { margin-top: 44px; }
+    h3 { margin-top: 28px; }
     a { color: #0366d6; text-decoration: none; }
     a:hover { text-decoration: underline; }
     img { max-width: 100%; }
+    hr { margin: 36px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 18px 0; }
+    th, td { border: 1px solid #ddd; padding: 10px; vertical-align: top; }
+    th { background: #f6f8fa; text-align: left; }
+    code { background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }
   </style>
 </head>
 
 <body>
   <div id="content">Loading…</div>
 
-  <!-- Embedded Markdown: paste visual.md content here -->
   <script id="md-source" type="text/markdown">
 ---
 title: Geometry Before Abstraction
@@ -46,105 +51,315 @@ title: Geometry Before Abstraction
 
 ![Banner](banner.jpg)
 
-# Geometry Before Abstraction  
+# Geometry Before Abstraction
 ## Multi-Scale Visual–Spatial Co-Learning
 
-We argue that embodied intelligence is fundamentally a geometric epistemology. An agent does not first learn symbols and then attach them to the world; it first acquires a representation whose internal topology is aligned with the topology of physical interaction. From this alignment, higher-level abstractions become compressions of stable geometric relations rather than free-floating codes. This position yields a disciplined consequence: representation learning for embodied agents should preserve spatial topology across scales, treat temporal change primarily as transport of structure, and allow abstraction only through topology-preserving coarse-graining. We formalize a minimal set of physical assumptions under which geometry-aligned learning is well-posed and illustrate constructively how approximate metric cognition, such as estimating “ten steps,” can emerge from geometry-preserving visual fields via calibration to reference units, without requiring explicit symbolic three-dimensional reconstruction. Our claim is not that geometry is sufficient for all cognition, but that it is a necessary substrate. Abstraction that precedes geometric grounding tends to be brittle, data-hungry, and unstable for control.
+This essay is a positioning statement distilled from the full technical chapter in *Geometry as the First Principle of Embodied Intelligence*. The thesis is that embodied intelligence is fundamentally a geometric epistemology. An agent does not first learn symbols and then attach them to the world. It first acquires a representation whose internal topology is aligned with the topology of physical interaction. Abstraction is then justified only as a compression of stable geometric relations, not as an unconstrained latent code.
 
-## Position: Embodied Learning as Geometric Epistemology
+The design consequence is a disciplined order: geometry before abstraction, transport before global mixing, and traceable coarse-graining before invariance. The purpose of this essay is to make the structure explicit level by level, with a clear separation between what is learned visually, what is learned spatially, and what is enforced by their coupling.
 
-The dominant temptation in modern machine learning is to treat representation as an unconstrained coding problem. Any latent that supports prediction is considered acceptable. In embodied settings, this temptation is costly, because the world is not an arbitrary data distribution. It is a physical system governed by invariants: continuity in space and time, locality of interaction, monotonic projection cues under approach, and structured coarse-to-fine organization in both perception and action.
+---
 
-These invariants are not statistical accidents. They are the structural preconditions that make control possible. A representation that ignores them can still interpolate within a dataset, but it cannot reliably generalize across physically plausible perturbations. It cannot become a stable model of interaction.
+## 1. Physical Foundations of Visual–Spatial Co-Learning
 
-Our position is therefore both philosophical and technical. Philosophically, an embodied agent “knows” space when its internal representation admits the same adjacency and ordering relations that the world enforces through contact and motion. Technically, this is best understood not as explicit coordinate reconstruction but as topology alignment. The geometry of representation should be a structured deformation of the geometry of the world. When this alignment holds, learning becomes alignment with existing structure rather than rediscovery of structure, and abstraction becomes compression rather than invention.
+The central claim is that visual representation and spatial reasoning cannot be learned independently in embodied systems. Appearance without geometry degenerates into texture memorization. Geometry without appearance lacks boundaries, identity, and coherence. Co-learning is therefore structural: appearance-sensitive channels and geometry-preserving structure must emerge together under physical constraints.
 
-This is not an argument against abstraction. It is an argument about order. Geometry must precede symmetry, and symmetry must precede abstraction. Abstraction introduced before geometric grounding tends to entangle spatial relations into global codes, increasing sample complexity and destabilizing control. Abstraction introduced after geometry has stabilized can be powerful precisely because it compresses a representation that is already physically meaningful.
+### 1.1 Visual Foundations: Image Formation and Observation
 
-## Why Visual–Spatial Co-Learning Is the Correct Framing
-
-It is common to divide perception into separate subproblems: visual features for appearance and spatial features for location and motion. In embodied systems, this division is misleading. Appearance is not separable from space because motion transports appearance, identity is defined by persistence over time, and objecthood emerges from coherent regions whose boundaries are visually determined but whose relations are spatial. Conversely, spatial reasoning cannot proceed without appearance, because regions and correspondences must be anchored in discriminable structure.
-
-Visual learning and spatial learning therefore form a coupled constraint system acting on a single representation. The learner must discover channels that are appearance-sensitive and at the same time stable under transport. It must discover spatial structure through appearance-defined regions embedded in a geometry-preserving lattice. This coupling is multi-scale because the world is multi-scale. Fine control requires high-frequency geometric precision, while robust identity and layout require coarser invariances. The central principle is that invariance is not permission to destroy geometry. It must arise through topology-preserving coarse-graining.
-
-## Minimal Physical Assumptions
-
-Assume there exists a low-dimensional task-relevant physical state $s_t \in \mathcal{M}$, and observations satisfy
-
+Let the task-relevant physical state at time $t$ be $s_t \in \mathcal{M}$, where $\mathcal{M}$ is low-dimensional relative to raw image space. The agent does not observe $s_t$ directly. Instead it receives an image observation
+$$
+I_t \in \mathbb{R}^{H \times W \times C},
+$$
+generated by an image-formation process
 $$
 I_t = \Pi(s_t) + \eta_t.
 $$
+Here $\Pi$ models projection and rendering effects (perspective, occlusion, illumination), and $\eta_t$ is bounded observation noise. The key point is not that $\Pi$ is known; it is that physical structure becomes accessible only through the regularities induced by $\Pi$.
 
-Assume further that physical dynamics are piecewise smooth, so that
+### 1.2 Spatial Foundations: Continuity and Transport in the Physical World
 
+Spatial structure comes from physical invariants. Nearby physical states produce nearby images up to locally coherent deformations. Temporal evolution is piecewise smooth:
 $$
-s_{t+1} = g(s_t, a_t) + \epsilon_t.
+s_{t+1} = g(s_t, a_t) + \epsilon_t,
+$$
+where $a_t$ is the agent’s action, $g$ is locally Lipschitz away from events (contact, occlusion), and $\epsilon_t$ is bounded. Most of the time, the world moves by transporting structure rather than inventing it. The representation must reflect this fact.
+
+### 1.3 Visual–Spatial Co-Learning: Structural Coupling
+
+The coupling between vision and space can be expressed as deformation consistency. If $s$ and $s'$ are nearby, there exists a warp $T_{s \to s'}$ such that
+$$
+I'(x) \approx I(T_{s \to s'}(x)) + \xi(x),
+$$
+with $\xi$ capturing photometric residuals. For small changes, write $T_{s \to s'}(x) = x - u_{s \to s'}(x)$, which reduces to optical-flow form in time:
+$$
+I_{t+1}(x) \approx I_t(x - u_t(x)).
+$$
+A geometry-preserving representation must be equivariant to the same family of deformations. If $F_t^{(\ell)} = E^{(\ell)}(I_t)$, then co-learning demands an induced lattice warp $\widetilde{T}^{(\ell)}$ such that
+$$
+E^{(\ell)}(I') \approx \widetilde{T}^{(\ell)}\!\left(E^{(\ell)}(I)\right).
+$$
+This is the core constraint shaping admissible visual features and enabling computable spatial variables.
+
+---
+
+## 2. Level 0 — Geometry-Preserving Visual Field Construction
+
+At Level 0, representation is not a global vector but a field. For each scale $\ell$,
+$$
+F_t^{(\ell)} = E^{(\ell)}(I_t) \in \mathbb{R}^{H_\ell \times W_\ell \times C_\ell}.
+$$
+The lattice indices $(i,j)$ correspond to localized image regions. Spatial structure is meaningful because features remain organized as fields over the lattice.
+
+### 2.1 Visual
+
+The encoder learns local appearance-sensitive measurements (edges, corners, textures). These are not merely features in a vector space; they are functions over a spatial substrate. The same channel can be interpreted as a spatial measurement field.
+
+### 2.2 Spatial
+
+Spatial information at this level is topological adjacency and continuity. With lattice coordinates $p^{(\ell)}_{i,j}$, topology alignment can be stated operationally as
+$$
+\|F_t^{(\ell)}(i,j) - F_t^{(\ell)}(i',j')\|
+\le
+L_\ell \|p_{i,j}^{(\ell)} - p_{i',j'}^{(\ell)}\|.
+$$
+This encodes continuity without metric reconstruction.
+
+### 2.3 Visual–Spatial Coupling
+
+The coupling is deformation consistency at the feature-field level. For image warp $T$ close to identity, there exists induced $\widetilde{T}^{(\ell)}$ such that
+$$
+E^{(\ell)}(I \circ T) \approx \widetilde{T}^{(\ell)}\!\left(E^{(\ell)}(I)\right).
+$$
+This constraint regularizes appearance learning by requiring coherent transformation under physically induced spatial deformations.
+
+---
+
+## 3. Level 1 — Transport-Constrained Visual Identity
+
+Level 1 introduces time. Spatial cognition requires persistence across frames. Objects move by transporting structure. Representation must do the same.
+
+### 3.1 Visual
+
+Visual identity must persist under motion. Appearance channels must be stable enough that the same entity remains identifiable as it moves across the lattice.
+
+### 3.2 Spatial
+
+Spatial information becomes dynamic: a displacement field induces image-plane transport, and the feature field should satisfy
+$$
+F_{t+1}^{(\ell)}(x) \approx F_t^{(\ell)}(x - v_t^{(\ell)}(x)).
+$$
+This is image-plane transport induced by physical motion, not explicit 3D reconstruction.
+
+### 3.3 Visual–Spatial Coupling
+
+Coupling is enforced by transport equivariance and multi-step rollout consistency. With a locality-biased transport operator $\mathcal{T}^{(\ell)}$, define the rollout
+$$
+\widehat{F}_{t+s}^{(\ell)} = \mathcal{T}^{(\ell)}\!\left(\widehat{F}_{t+s-1}^{(\ell)}, F_{t+s}^{(\ell)}\right), 
+\qquad \widehat{F}_t^{(\ell)} = F_t^{(\ell)}.
+$$
+The co-learning constraint is that rollout remains accurate for nontrivial horizons:
+$$
+\|\widehat{F}_{t+s}^{(\ell)} - F_{t+s}^{(\ell)}\| \le \varepsilon \quad \text{for } s \le S.
+$$
+This forces appearance channels to become motion-compatible, because unstable visual codes cannot satisfy long-horizon transport consistency.
+
+---
+
+## 4. Level 2 — Region-Level Visual–Spatial Binding
+
+Regions are where “object-like” spatial structure becomes computable. Appearance defines membership; geometry defines relations.
+
+### 4.1 Visual
+
+Let $m_t^{(k)}(i,j) \in [0,1]$ denote soft region assignments derived from the feature field. Region membership is defined by appearance coherence, stabilized by transport.
+
+### 4.2 Spatial
+
+With region mass $Z_t^{(k)} = \sum_{i,j} m_t^{(k)}(i,j)$, region geometry becomes computable:
+$$
+\mu_t^{(k)} = \frac{1}{Z_t^{(k)}} \sum_{i,j} m_t^{(k)}(i,j) p_{i,j},
+\qquad
+\Sigma_t^{(k)} = \frac{1}{Z_t^{(k)}} \sum_{i,j} m_t^{(k)}(i,j) (p_{i,j}-\mu_t^{(k)})(p_{i,j}-\mu_t^{(k)})^\top.
+$$
+Relational geometry follows from centroid displacement:
+$$
+\Delta_t^{(k,r)} = \mu_t^{(k)} - \mu_t^{(r)}.
 $$
 
-## Formal Core: Geometry-Preserving Fields
+### 4.3 Visual–Spatial Coupling
 
-Representation is modeled as a hierarchy of retinotopic feature fields
+The coupling constraint is that regions must be simultaneously appearance-coherent and spatially connected on the lattice. This dual requirement makes relational predicates meaningful, because centroids and extents are well-defined only when region membership is not fragmented.
 
-$$
-F_t^{(\ell)} \in \mathbb{R}^{H_\ell \times W_\ell \times C_\ell}.
-$$
+---
 
-Across scales, abstraction is enforced through local aggregation:
+## 5. Multi-Scale Coarse-Graining as Controlled Abstraction
 
+Multi-scale learning must not destroy geometric traceability. Coarse features may become invariant, but only as structured compressions of fine geometry.
+
+### 5.1 Visual
+
+Coarse scales smooth appearance variation through local aggregation, enabling invariance without global mixing.
+
+### 5.2 Spatial
+
+Coarse scales preserve ordering at lower resolution by maintaining adjacency under downsampling. Spatial variables remain interpretable as fields and region statistics.
+
+### 5.3 Visual–Spatial Coupling
+
+A locality-preserving aggregation operator $A^{(\ell)}$ enforces traceable abstraction:
 $$
 F_t^{(\ell+1)} \approx A^{(\ell)}(F_t^{(\ell)}).
 $$
+Alignment penalizes entangled abstractions that cannot be obtained by local coarse-graining of fine-scale fields.
 
-## Constructive Derivation: From Fields to Metric Cognition
+---
 
-Under a pinhole camera model with focal length $f$,
+## 6. Level 3 — Metric Calibration Through Interaction
 
+Relational geometry provides ordering but not scale. Metric meaning requires calibration through action.
+
+### 6.1 Visual
+
+The visual system provides measurable image-plane quantities such as centroid displacement and apparent size derived from region moments.
+
+### 6.2 Spatial
+
+Under a pinhole model, apparent radius provides a depth proxy:
 $$
-r \approx f \frac{R}{Z},
-$$
-
-which implies
-
-$$
+r \approx f \frac{R}{Z}
+\qquad \Rightarrow \qquad
 Z \approx \frac{fR}{r}.
 $$
-
 Angular separation satisfies
-
 $$
-\theta \approx \frac{\sqrt{(u_2 - u_1)^2 + (v_2 - v_1)^2}}{f}.
+\theta \approx \frac{\|\mu^{(2)}-\mu^{(1)}\|}{f}.
 $$
-
-An approximate center distance follows:
-
+A constructive 3D distance estimate is
 $$
-\widehat{D}^2 \approx \widehat{Z}_1^2 + \widehat{Z}_2^2 - 2 \widehat{Z}_1 \widehat{Z}_2 \cos\theta.
+\widehat{D}^2 \approx \widehat{Z}_1^2 + \widehat{Z}_2^2 \;-\; 2 \widehat{Z}_1 \widehat{Z}_2 \cos\theta.
 $$
 
-Metric cognition then emerges through calibration:
+### 6.3 Visual–Spatial Coupling
 
+Metric structure becomes meaningful only through interaction. A learned calibration map connects perceptual geometry to action-grounded scale:
 $$
-\widetilde{D} = \mathcal{C}(\|\Delta\|, r_1, r_2; \theta_C).
+\widetilde{D}_t = \mathcal{C}(\|\Delta_t\|, r_t^{(1)}, r_t^{(2)}; \theta_C).
 $$
+This is the point where “ten steps” becomes possible: not because vision outputs steps, but because calibration learns a mapping between perceptual geometry and a reference unit.
 
-## Falsifiability
+---
 
-A serious position must make predictions. The geometry-first view predicts that strong embodied systems will exhibit scales at which low-complexity readouts recover spatial variables, that rollout error will degrade gradually with horizon under physically plausible perturbations, and that coarse-scale invariances will remain traceable to local aggregation of fine-scale fields.
+## 7. Level 4 — Symbolic Spatial Abstraction
 
-## Outlook
+Symbolic spatial reasoning is compression, not replacement. It partitions calibrated geometry into discrete equivalence classes suitable for communication and planning.
 
-Geometry is not the ceiling of intelligence. It is the substrate. Memory, object-centric latents, predictive world models, and planning become stable only when operating on geometry-preserving representations. Without such stabilization, long-horizon reasoning amplifies error and decision-making becomes brittle.
+### 7.1 Visual
+
+The visual substrate remains field-based. Symbols do not replace feature fields; they summarize and compress structured geometric variables derived from them.
+
+### 7.2 Spatial
+
+Quantization maps calibrated scalars to discrete tokens. Predicate maps convert relational geometry into discrete relations.
+
+### 7.3 Visual–Spatial Coupling
+
+Abstraction is compositional over geometry:
+$$
+\mathcal{A}_{\text{sym}} = \Psi \circ \mathcal{C} \circ \mathcal{R}.
+$$
+Symbols are therefore grounded compressions of calibrated relations, not free-floating codes.
+
+---
+
+## 8. Control Interface and Identifiability
+
+The hierarchy is incomplete unless it supports stable action. Control is the operational test of geometric alignment.
+
+### 8.1 Visual
+
+Task-relevant summaries extracted from the field must be stable under physically plausible perturbations.
+
+### 8.2 Spatial
+
+A control variable must preserve ordering so that corrective updates move in the correct direction.
+
+### 8.3 Visual–Spatial Coupling
+
+We require low-complexity decodability as an identifiability constraint:
+$$
+\hat{y}_t = w^\top z_t.
+$$
+If geometry is entangled, no simple readout remains stable, and monotonic control destabilizes. When geometry is preserved, the readout is smooth and control contracts error.
+
+---
+
+## 9. Conclusion
+
+Spatial information is not a separate stream appended to appearance. It emerges progressively through constrained visual–spatial co-learning. At Level 0 it is topological adjacency. At Level 1 it is dynamic transport. At Level 2 it is relational geometry defined over coherent regions. At Level 3 it becomes metric through action-grounded calibration. At Level 4 it becomes symbolic through structured compression. Control then verifies that the learned geometry is usable by requiring stable low-complexity readouts.
+
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>Visual</th>
+      <th>Spatial</th>
+      <th>Visual–Spatial Coupling</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>Local appearance fields</td>
+      <td>Topological adjacency</td>
+      <td>Deformation consistency: $E(I\circ T)\approx \widetilde{T}(E(I))$</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>Transport-stable identity</td>
+      <td>Image-plane displacement</td>
+      <td>Rollout consistency: $\|\widehat{F}_{t+s}-F_{t+s}\|\le \varepsilon$</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Region coherence</td>
+      <td>Centroids/extents; relations</td>
+      <td>Appearance coherence + spatial connectedness</td>
+    </tr>
+    <tr>
+      <td>Multi-scale</td>
+      <td>Invariance via aggregation</td>
+      <td>Ordering across scales</td>
+      <td>Traceable abstraction: $F^{(\ell+1)}\approx A^{(\ell)}(F^{(\ell)})$</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Measurable cues</td>
+      <td>Metric via calibration</td>
+      <td>Action-grounded mapping: $\widetilde{D}=\mathcal{C}(\cdot)$</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Field grounding persists</td>
+      <td>Symbolic tokens</td>
+      <td>Structured compression: $\mathcal{A}_{\text{sym}}=\Psi\circ\mathcal{C}\circ\mathcal{R}$</td>
+    </tr>
+    <tr>
+      <td>Control</td>
+      <td>Stable summaries</td>
+      <td>Ordered error variable</td>
+      <td>Identifiability: $\hat{y}=w^\top z$</td>
+    </tr>
+  </tbody>
+</table>
+
+This positioning is not an architecture checklist. It is a claim about order: geometry first, transport next, abstraction last. When representation geometry is aligned with physical geometry, learning becomes alignment rather than rediscovery, abstraction becomes compression rather than invention, and control becomes stable because representation mirrors the topology of interaction.
   </script>
 
   <script>
     window.addEventListener('DOMContentLoaded', async () => {
       const raw = document.getElementById('md-source').textContent;
-
-      // strip YAML front matter if present
       const md = raw.replace(/^---[\s\S]*?---\s*/m, '');
-
       document.getElementById('content').innerHTML = marked.parse(md);
-
       if (window.MathJax && MathJax.typesetPromise) {
         await MathJax.typesetPromise();
       }
