@@ -166,7 +166,7 @@ Coupling is enforced by transport equivariance and multi-step rollout consistenc
 F_{t+s}^{(\ell)}
 \right),
 \qquad
-\widehat{F}_{t}^{(\ell)} = F_{t}^{(\ell)}.
+\widehat{F}_t^{(\ell)} = F_t^{(\ell)}.
 \]
 
 The co-learning constraint is that rollout remains accurate for nontrivial horizons:
@@ -184,6 +184,7 @@ F_{t+s}^{(\ell)}
 \]
 
 This forces appearance channels to become motion-compatible, because unstable visual codes cannot satisfy long-horizon transport consistency.
+
 ---
 
 ## 4. Level 2 — Region-Level Visual–Spatial Binding
