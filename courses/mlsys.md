@@ -18,8 +18,8 @@ The Machine Learning Systems (ML Sys) course focuses on the integration of algor
 - **Week 1 — Introduction: The Intellectual Map of ML Systems**  
   <https://github.com/memxlife/memxlife.github.io/blob/main/books/mlsys/chapter1.html>
 
-- **Week 2 — TBD**  
-  TBD
+- **Week 2 — CPU Foundations and GPU Emergence**
+  <https://github.com/memxlife/memxlife.github.io/blob/main/books/mlsys/chapter2.html>
 
 - **Week 3 — TBD**  
   TBD
