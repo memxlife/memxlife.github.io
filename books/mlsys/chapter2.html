@@ -1,58 +1,67 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8" />
-<title>Chapter 2 — CPU Foundations and GPU Emergence</title>
+  <meta charset="UTF-8" />
+  <title>Chapter 2 — CPU Foundations, GPU Emergence, and the Logic of Throughput Computing</title>
 
-<script>
-window.MathJax = {
-tex: {
-inlineMath: [['$', '$'], ['\\(', '\\)']],
-displayMath: [['$$', '$$'], ['\\[', '\\]']]
-},
-svg: { fontCache: 'global' }
-};
-</script>
+  <!-- MathJax -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 
-<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Markdown renderer -->
+  <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-<style>
-body {
-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-max-width: 900px;
-margin: 60px auto;
-line-height: 1.7;
-color: #222;
-}
-h1 { font-size: 2.2em; margin-bottom: 0.2em; }
-h2 { margin-top: 44px; }
-h3 { margin-top: 28px; }
-hr { margin: 36px 0; }
-</style>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      max-width: 900px;
+      margin: 60px auto;
+      line-height: 1.7;
+      color: #222;
+      padding: 0 18px;
+    }
+    h1 { font-size: 2.2em; margin-bottom: 0.2em; }
+    h2 { margin-top: 44px; }
+    h3 { margin-top: 28px; }
+    a { color: #0366d6; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    img { max-width: 100%; }
+    hr { margin: 36px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 18px 0; }
+    th, td { border: 1px solid #ddd; padding: 10px; vertical-align: top; }
+    th { background: #f6f8fa; text-align: left; }
+    code { background: #f6f8fa; padding: 2px 4px; border-radius: 4px; }
+    pre code { display: block; padding: 12px; overflow-x: auto; }
+  </style>
 </head>
 
 <body>
+  <div id="content">Loading…</div>
 
-<div id="content">Loading…</div>
-
-<script id="md-source" type="text/markdown">
-
+  <script id="md-source" type="text/markdown">
 # Chapter 2
 
 # CPU Foundations, GPU Emergence, and the Logic of Throughput Computing
 
 In Chapter 1, we established the central thesis of Machine Learning Systems. The field is fundamentally a cross-layer optimization problem. The largest opportunities often arise at the algorithmic level, yet every algorithmic choice must ultimately be realized through system software and hardware. We also argued that machine learning workloads are dominated by large-scale tensor operations, and that communication and storage constraints increasingly govern overall system performance. That argument now brings us to a natural next step. If machine learning systems must eventually execute on real hardware, then we must understand how that hardware is organized, why it evolved the way it did, and why modern AI workloads led the industry from CPU-centered design toward GPU-centered computing.
 
-This chapter begins from the CPU, not because CPUs are the final answer for machine learning, but because they provide the right conceptual baseline. The GPU did not emerge from nowhere. It emerged from a different response to a different workload. To understand GPU architecture well, one must first understand what CPU architecture is trying to optimize, where that optimization succeeds, and where it reaches its limits. Only then can the logic of the GPU become intellectually clear. This chapter therefore proceeds in two broad movements. In the first movement, we revisit classical CPU architecture from an optimization perspective, focusing on performance decomposition, pipelining, instruction-level parallelism, memory hierarchy, and data locality. In the second movement, we show why these ideas, while extremely powerful for general-purpose computing, are insufficient for the tensor-dominated workloads of machine learning. From there, we explain why the GPU was born differently, how it evolved from graphics hardware into a programmable throughput machine, and why CUDA became the pivotal software abstraction that transformed the GPU from a peripheral graphics engine into the computational backbone of modern AI. This framing follows the logic of the lecture and the course itself, which introduces computer architecture as an optimization problem and then uses CPU–GPU comparison to motivate the rest of the stack.
+This chapter begins from the CPU, not because CPUs are the final answer for machine learning, but because they provide the right conceptual baseline. The GPU did not emerge from nowhere. It emerged from a different response to a different workload. To understand GPU architecture well, one must first understand what CPU architecture is trying to optimize, where that optimization succeeds, and where it reaches its limits. Only then can the logic of the GPU become intellectually clear. This chapter therefore proceeds in two broad movements. In the first movement, we revisit classical CPU architecture from an optimization perspective, focusing on performance decomposition, pipelining, instruction-level parallelism, memory hierarchy, and data locality. In the second movement, we show why these ideas, while extremely powerful for general-purpose computing, are insufficient for the tensor-dominated workloads of machine learning. From there, we explain why the GPU was born differently, how it evolved from graphics hardware into a programmable throughput machine, and why CUDA became the pivotal software abstraction that transformed the GPU from a peripheral graphics engine into the computational backbone of modern AI. This framing follows the logic of the lecture and the course itself, which introduces computer architecture as an optimization problem and then uses CPU–GPU comparison to motivate the rest of the stack.  ￼
 
 ---
 
 ## 2.1 Machine Learning Systems Again: Why Architecture Matters
 
-Before diving into CPU and GPU details, it is worth restating the larger systems context. Machine Learning Systems is not reducible to hardware, software, or algorithms in isolation. It is about building efficient, reliable, and scalable machine learning services through vertical integration across these layers. The lecture repeatedly emphasizes that, as of today, the primary driver of evolution in machine learning systems is still the algorithm. The greatest gains in efficiency, scalability, and even capability often arise by changing the computational structure of the model itself. But hardware and software are not passive implementation details. They impose the constraints that determine whether an algorithmic idea is elegant only on paper or truly transformative in practice. This view is explicitly reflected in the course framing, which defines machine learning systems as the process of machine learning algorithm design, development, and deployment with scalability in mind, organized as a vertically integrated optimization hierarchy spanning algorithms, system software, and hardware architecture.
+Before diving into CPU and GPU details, it is worth restating the larger systems context. Machine Learning Systems is not reducible to hardware, software, or algorithms in isolation. It is about building efficient, reliable, and scalable machine learning services through vertical integration across these layers. The lecture repeatedly emphasizes that, as of today, the primary driver of evolution in machine learning systems is still the algorithm. The greatest gains in efficiency, scalability, and even capability often arise by changing the computational structure of the model itself. But hardware and software are not passive implementation details. They impose the constraints that determine whether an algorithmic idea is elegant only on paper or truly transformative in practice. This view is explicitly reflected in the course framing, which defines machine learning systems as the process of machine learning algorithm design, development, and deployment with scalability in mind, organized as a vertically integrated optimization hierarchy spanning algorithms, system software, and hardware architecture.  ￼
 
-That is precisely why architecture matters. If we are to reason rigorously about scalability, we need to understand what the hardware is actually optimizing. The CPU and GPU embody different architectural philosophies because they were built to optimize different workload structures. The CPU is a machine for extracting as much useful work as possible from a relatively small number of instruction streams with complex control and irregular data access. The GPU is a machine for exploiting massive regular parallelism and sustaining extremely high throughput. Both are optimization outcomes. Both reflect assumptions about workload. And machine learning, as the lecture insists, is a workload problem first. Workload is king.
+That is precisely why architecture matters. If we are to reason rigorously about scalability, we need to understand what the hardware is actually optimizing. The CPU and GPU embody different architectural philosophies because they were built to optimize different workload structures. The CPU is a machine for extracting as much useful work as possible from a relatively small number of instruction streams with complex control and irregular data access. The GPU is a machine for exploiting massive regular parallelism and sustaining extremely high throughput. Both are optimization outcomes. Both reflect assumptions about workload. And machine learning, as the lecture insists, is a workload problem first. Workload is king.  ￼
 
 ---
 
@@ -60,7 +69,7 @@ That is precisely why architecture matters. If we are to reason rigorously about
 
 Any serious discussion of architecture must begin with performance. But “performance” is not a primitive notion. It must be decomposed into factors that can actually guide design.
 
-A natural end-user metric is simply execution time: how long does it take to run a program? Classical computer architecture turns this intuitive question into a more structured decomposition. The lecture slides express processor performance through the familiar product of code size, cycles per instruction, and cycle time. In other words, total execution time can be written as the number of instructions per program, multiplied by the number of cycles per instruction, multiplied by the time per cycle.
+A natural end-user metric is simply execution time: how long does it take to run a program? Classical computer architecture turns this intuitive question into a more structured decomposition. The lecture slides express processor performance through the familiar product of code size, cycles per instruction, and cycle time. In other words, total execution time can be written as the number of instructions per program, multiplied by the number of cycles per instruction, multiplied by the time per cycle.  ￼
 
 This decomposition is powerful because each factor corresponds to a different design lever. The number of instructions per program reflects how compactly the machine and compiler can express the computation. Cycles per instruction reflects how efficiently the microarchitecture can execute those instructions, given hazards, stalls, and resource conflicts. Cycle time reflects the underlying clock period, and therefore the frequency at which the machine can operate.
 
@@ -72,9 +81,9 @@ This same idea later reappears for GPUs under a different metric. There, what ma
 
 ## 2.3 From Instruction Execution to Pipelining
 
-Once performance is decomposed, the next question is how a CPU actually executes instructions. The lecture reviews the standard five-stage model: instruction fetch, instruction decode and register read, execute, memory access, and write-back. This model is pedagogically useful because it reveals a basic inefficiency in naive sequential execution. If a single instruction monopolizes all resources through all stages before the next instruction begins, then most hardware resources sit idle most of the time.
+Once performance is decomposed, the next question is how a CPU actually executes instructions. The lecture reviews the standard five-stage model: instruction fetch, instruction decode and register read, execute, memory access, and write-back.  ￼ This model is pedagogically useful because it reveals a basic inefficiency in naive sequential execution. If a single instruction monopolizes all resources through all stages before the next instruction begins, then most hardware resources sit idle most of the time.
 
-Pipelining is the classical solution. The key idea is not to reduce the latency of an individual instruction, but to increase throughput by overlapping the stages of many instructions. Once the pipeline is full, the processor can ideally complete one instruction per cycle even if each individual instruction still traverses multiple stages. The lecture presents this explicitly: instruction latency may remain five cycles, but instruction throughput improves to one instruction per cycle, driving the effective CPI toward one.
+Pipelining is the classical solution. The key idea is not to reduce the latency of an individual instruction, but to increase throughput by overlapping the stages of many instructions. Once the pipeline is full, the processor can ideally complete one instruction per cycle even if each individual instruction still traverses multiple stages. The lecture presents this explicitly: instruction latency may remain five cycles, but instruction throughput improves to one instruction per cycle, driving the effective CPI toward one.  ￼
 
 This distinction between latency and throughput is fundamental. It anticipates the eventual move from CPU to GPU. In CPUs, pipelining is already the first step away from “finish one thing before starting the next” toward a throughput-oriented view of computation. But this throughput is still being extracted within a relatively narrow instruction stream. The CPU is still fundamentally trying to optimize a small number of complex threads. The GPU will eventually take the throughput idea much further by abandoning many of the mechanisms required for single-thread aggressiveness.
 
@@ -86,13 +95,17 @@ Still, pipelining alone is not enough. Once multiple instructions are in flight 
 
 This is where the classic CPU optimization toolbox appears.
 
-The lecture explains branch prediction as a response to control hazards. When execution reaches a branch, the CPU could stall until the branch outcome becomes known. But that would underutilize the pipeline. Instead, modern CPUs predict which path will be taken and speculatively continue fetching and decoding instructions. In loops, this works especially well because most iterations follow the same path until the termination condition is finally reached. The slides explicitly frame branch prediction as a way to avoid pipeline stalls.
+The lecture explains branch prediction as a response to control hazards. When execution reaches a branch, the CPU could stall until the branch outcome becomes known. But that would underutilize the pipeline. Instead, modern CPUs predict which path will be taken and speculatively continue fetching and decoding instructions. In loops, this works especially well because most iterations follow the same path until the termination condition is finally reached. The slides explicitly frame branch prediction as a way to avoid pipeline stalls.  ￼
 
-Out-of-order execution addresses a different inefficiency: memory latency and data dependence gaps. If one instruction is waiting on a slow memory load, the CPU should not simply idle. It should look ahead, identify later instructions whose operands are already available, and execute them early, provided correctness is preserved.
+Out-of-order execution addresses a different inefficiency: memory latency and data dependence gaps. If one instruction is waiting on a slow memory load, the CPU should not simply idle. It should look ahead, identify later instructions whose operands are already available, and execute them early, provided correctness is preserved. The slides describe this directly as “hide memory latency.”  ￼ This requires substantial bookkeeping, including dependency tracking, register renaming, and reorder buffers so that instructions may execute out of order but still retire in program order.
 
-Superscalar design then pushes parallel issue further. Instead of launching one instruction into the pipeline per cycle, the processor issues multiple independent instructions to multiple execution units in parallel.
+Superscalar design then pushes parallel issue further. Instead of launching one instruction into the pipeline per cycle, the processor issues multiple independent instructions to multiple execution units in parallel. The lecture characterizes this through issue parallelism and peak IPC, making clear that superscalar performance depends on finding enough independent work in the instruction stream to keep multiple units busy.  ￼
 
-Taken together, pipelining, branch prediction, out-of-order execution, and superscalar issue represent the classical CPU response to instruction-level parallelism.
+Taken together, pipelining, branch prediction, out-of-order execution, and superscalar issue represent the classical CPU response to instruction-level parallelism. They are all attempts to extract performance from a single or small number of threads without forcing programmers to rewrite everything into explicit parallel code. The CPU tries to discover, predict, and exploit independent work dynamically.
+
+This is an extremely sophisticated and extremely expensive strategy.
+
+It is sophisticated because it requires complex control logic, speculation, scheduling hardware, reorder structures, and large caches. It is expensive because much of the silicon is not directly doing arithmetic. It is orchestrating arithmetic. Later in the lecture, when CPU and GPU layouts are compared, this becomes visually obvious: the CPU dedicates significant area to control, scheduling, caches, and branch logic, while the actual arithmetic engines occupy a relatively small portion. That is not a flaw. It is a consequence of the CPU’s workload assumptions.
 
 ---
 
@@ -100,29 +113,43 @@ Taken together, pipelining, branch prediction, out-of-order execution, and super
 
 The CPU’s optimization story is not purely hardware. The compiler and software stack play a major role as well.
 
-The lecture uses a simple array summation loop to motivate this. In its naive form, the loop contains a branch every iteration, limited instruction-level parallelism, and repeated dependence on the running sum. By unrolling the loop, the compiler exposes more independent operations, reduces branch overhead, and makes it easier for hardware to overlap loads and arithmetic.
+The lecture uses a simple array summation loop to motivate this. In its naive form, the loop contains a branch every iteration, limited instruction-level parallelism, and repeated dependence on the running sum. By unrolling the loop, the compiler exposes more independent operations, reduces branch overhead, and makes it easier for hardware to overlap loads and arithmetic. The slides emphasize exactly these points: fewer branches, more independent load/add pairs, and better use of caches and prefetchers.  ￼
 
-Vectorization pushes this idea further. Rather than applying one instruction to one datum, SIMD instructions apply one instruction to multiple data values in parallel.
+Vectorization pushes this idea further. Rather than applying one instruction to one datum, SIMD instructions apply one instruction to multiple data values in parallel. The slides explain this as using SIMD registers to perform multiple loads and additions in one instruction, with AVX2 summing eight integers at once and reducing both loop iterations and branch/control overhead.  ￼
 
-This is a very important conceptual bridge to the GPU.
+This is a very important conceptual bridge to the GPU. SIMD is still a CPU-side technique, but it already reveals a key principle: if the workload is regular enough, then a single control stream can drive many arithmetic operations on multiple data values. In classical CPU design, SIMD is an optimization layered on top of a fundamentally general-purpose machine. In GPU design, this idea becomes foundational.
+
+But there is still a limit. Instruction-level parallelism is finite. The compiler can expose more of it through unrolling and vectorization, and the hardware can exploit it through superscalar issue and out-of-order execution, but the total amount available in a general-purpose instruction stream is not arbitrarily large. Eventually, the CPU hits diminishing returns. This is one of the reasons multicore and then throughput-oriented accelerators became necessary.
 
 ---
 
 ## 2.6 Data Locality and the Logic of the Memory Hierarchy
 
-The lecture then shifts to the data side. The central observation is locality. Programs tend to reuse recently accessed data (temporal locality) and nearby data (spatial locality).
+The lecture then shifts to the data side, and this shift is crucial. If the processing side is about exposing and exploiting parallel operations, the data side is about ensuring that data can be supplied quickly enough to support them.
 
-This motivates the memory hierarchy. Registers are tiny but fast. On-chip SRAM is larger but slower. Main memory is large but slow.
+The central observation is locality. Programs do not usually access memory randomly. They tend to reuse recently accessed data, which is temporal locality, and they tend to access nearby data in time, which is spatial locality. The slides make both points explicitly and note that even very small local storage may satisfy a surprisingly large fraction of references to much larger datasets.  ￼
 
-The goal is to create the appearance of large, fast memory at the cost of slow, cheap storage.
+This locality motivates the memory hierarchy. Registers are tiny but fast. On-chip SRAM is larger but slightly slower. Lower levels such as main memory are much larger but far slower. The goal is to create the appearance of large, fast memory at the cost of slow, cheap storage by keeping the most important data close to the compute units. The slides summarize this hierarchy and its rationale directly.  ￼
+
+The lecture then reviews cache design, including direct-mapped, fully associative, and set-associative caches. This discussion matters not because students must memorize every implementation detail, but because it shows that storage design is itself an optimization problem. We want low hit time, low miss rate, low miss penalty, high bandwidth, efficient replacement policies, coherence, and energy efficiency. The slides explicitly enumerate these criteria for “ideal hardwired storage.”  ￼
+
+The broader lesson is that modern processors are not fast merely because they have arithmetic units. They are fast because they manage data movement carefully. The compiler helps by arranging loops and data layout. The hardware helps by exploiting locality through caches and prefetchers. This interaction between software and hardware is already a miniature example of vertical co-design.
+
+But the lecture also prepares us to see the limitation of this strategy. CPU memory hierarchy is largely controlled by hardware. The programmer and compiler can hint and structure access patterns, but much of the dynamic policy is embedded in cache behavior and prediction mechanisms. This works well when workloads are irregular and general-purpose. It is not obviously optimal when workloads are massively parallel, highly structured, and dominated by tiles of matrix operations.
+
+That is precisely where the GPU diverges.
 
 ---
 
 ## 2.7 Why the CPU Reaches a Limit
 
-By this point, the lecture has assembled the CPU’s major optimization techniques. But machine learning workloads are different. Matrix multiplication exposes enormous parallelism.
+By this point, the lecture has assembled the CPU’s major optimization techniques. On the processing side, the compiler uses loop unrolling and vectorization to expose parallel operations, while the hardware uses out-of-order execution, multiple issue, and branch prediction to exploit them. On the data side, software arranges data for locality and prefetch opportunities, while hardware uses cache hierarchy and prefetching to reduce latency. The slides summarize this cleanly by separating compiler-side and CPU-side optimizations across processing and data dimensions.  ￼
 
-Thus the CPU’s heavy control logic becomes less valuable than raw arithmetic throughput and bandwidth.
+This is a mature and elegant architecture. Yet it is ultimately shaped by instruction-level parallelism and thread-level parallelism in general-purpose workloads. The lecture emphasizes that CPU performance comes from finding independent work in a single thread or across a modest number of threads. Historically, multicore extends this by exploiting thread-level parallelism, but the benefits depend on how parallel the workload really is. The slides invoke the standard multicore speedup argument, showing how fixed serial fractions rapidly dominate performance gains even with many cores.  ￼
+
+Machine learning workloads are different. Matrix multiplication exposes an enormous amount of regular parallelism. The lecture uses the triple-loop formulation of matrix multiplication and then shows how blocking, loop unrolling, SIMD vectorization, and multithreading can all be applied to it. The key point is that the structure of the workload is tile-based and massively parallel. It is not merely “a program with some parallel regions.” It is a computation whose very essence is large-scale repeated arithmetic on blocks of data. The slides explicitly frame these optimizations around matrix multiplication: cache blocking or loop tiling for locality, loop unrolling to reduce branch overhead and improve ILP, SIMD vectorization to perform many fused multiply-adds at once, and multithreading to partition matrix blocks across threads.
+
+At this point, we can see the CPU’s mismatch more clearly. The CPU spends enormous silicon budget on extracting small and medium amounts of parallelism from complicated instruction streams. But matrix multiplication does not need that kind of cleverness. It does not need elaborate branch prediction. It does not need deep speculation. It needs enormous arithmetic throughput, enormous memory bandwidth, and a software model capable of orchestrating tiles of structured computation.
 
 This is why the GPU was born differently.
 
@@ -130,61 +157,91 @@ This is why the GPU was born differently.
 
 ## 2.8 GPU Was Born Differently
 
-Throughput matters and single threads do not. Memory latency is hidden through massive parallelism.
+The slides state this in a beautifully direct way: throughput matters and single threads do not. Memory latency is hidden through parallelism. The programmer is allowed, and in some sense required, to deal more explicitly with the raw storage hierarchy. High clock frequency is not the central design objective.  ￼
 
-Where the CPU optimizes a few complex threads, the GPU keeps thousands of simpler arithmetic units busy.
+This is a radical change in philosophy.
+
+Where the CPU is optimized to make a small number of threads run as intelligently and aggressively as possible, the GPU is optimized to keep a very large number of simpler arithmetic engines busy. Instead of spending huge area on speculative control machinery, the GPU spends area on replicated arithmetic units and execution contexts. Instead of hiding memory latency primarily through sophisticated control mechanisms, it hides latency through massive parallelism: when one group of threads stalls, another group can be scheduled.
+
+The lecture’s CPU-vs-GPU comparison makes this concrete by contrasting bandwidth and silicon use. The slides show, for example, that a recent desktop CPU has roughly 134.4 GB/s of memory bandwidth while a high-end modern GPU is estimated around 1,920 GB/s, reflecting nearly an order-of-magnitude difference in what kinds of workloads they are built to sustain.  ￼ The accompanying architectural comparison shows that much more of the GPU die is devoted directly to SIMD-style compute structures, while the CPU devotes far more area to control and cache machinery. This is exactly what we should expect once workload assumptions diverge.
+
+The lecture then pushes the comparison one step further with a conceptual decomposition. If one starts from a CPU-like core and removes much of the heavy out-of-order logic, branch prediction logic, memory prefetch logic, and large data cache, what remains is a simpler execution engine that can be replicated many times. If instruction fetch and decode are shared appropriately and execution contexts are managed at scale, one moves toward the logic of a streaming multiprocessor. This is not literally how the GPU was historically designed, but pedagogically it is a powerful way to show students that the GPU is not “mystical hardware.” It is the outcome of removing general-purpose aggressiveness in order to maximize throughput under a different workload model.
 
 ---
 
 ## 2.9 From Graphics to General-Purpose Throughput Computing
 
-GPU evolution followed three phases:
+One of the most important strengths of the lecture is that it does not treat the GPU as if it were invented for deep learning. It reconstructs the historical path.
 
-1. Fixed-function graphics hardware  
-2. Programmable graphics shaders  
-3. General-purpose GPU computing
+The slides describe a thirty-year journey, beginning with NVIDIA’s founding in 1993, the rise of graphics processors in the gaming market, the introduction of the term “GPU” with GeForce 256 in 1999, the launch of CUDA in 2006, and the eventual centrality of GPUs to AI by 2018 and beyond.  ￼ The lecture also stresses that this journey was bumpy, including technical failures, market setbacks, and repeated moments when the company nearly lost its footing. The point is not just historical color. It is methodological. Great system architectures are rarely born in their final form. They evolve through workload pressure, accumulated infrastructure, and many incorrect turns.
 
-This evolution enabled GPUs to become the computational backbone of modern AI.
+The slides also characterize GPU evolution in three generations: hardwired fixed-function graphics, software-programmable graphics, and then general-purpose GPU computing for AI and machine learning.  ￼ This tripartite structure is extremely useful for a textbook chapter because it mirrors a deeper architectural logic.
+
+In the first phase, hardware was customized for graphics primitives with little or no programmability. In the second phase, increasing transistor budgets made programmable shaders possible. This enabled much greater flexibility for graphics effects, but still within the graphics rendering pipeline. In the third phase, CUDA and related programming abstractions broke the strict graphics boundary and turned the GPU into a general parallel compute engine. Once that happened, the same throughput-oriented architecture that had been useful for graphics became extraordinarily valuable for linear algebra, scientific computing, and eventually deep learning.
+
+The lecture makes a particularly insightful point here: from day zero, graphics processing already contained large amounts of linear algebra. Vertex transformations in the graphics pipeline required repeated matrix–vector multiplication. The modeling, view, and projection transformations all reduce to matrix operations. The slides explicitly walk through the graphics rendering pipeline and MVP transformation, showing how three-dimensional objects are transformed, assembled, rasterized, and shaded.  ￼ Even though early GPUs were built for graphics, their computational structure already aligned naturally with parallel linear algebra. In retrospect, this is one reason they were so ready for machine learning once the software abstractions arrived.
 
 ---
 
 ## 2.10 Unified Shader Architecture and the Meaning of Flexibility
 
-Unified shader architecture allowed any execution unit to handle any shader task, improving utilization and flexibility.
+The 2006 Tesla-generation unified shader architecture receives special emphasis in both the lecture and slides, and rightly so. The slides note that GeForce 8800 featured 128 processing elements distributed among eight shader cores, where each shader core could be assigned to any shader task, eliminating rigid stage-by-stage balancing and greatly improving performance.  ￼
+
+This matters because it marks the transition from a more rigid graphics pipeline to a more flexible compute substrate. Once execution resources are no longer tightly partitioned by graphics stage, utilization improves and the machine becomes more generally useful. This is the beginning of the GPU as a true throughput computer rather than just a collection of special graphics stages.
+
+But the lecture makes an even deeper point: flexibility is expensive, yet essential. More hardware-specific accelerators may achieve higher efficiency on narrower workloads, but they often lose badly in programmability. The GPU’s great advantage is not merely that it has many cores. It is that it combines high throughput with a sufficiently general software model that large communities can actually use it. This point anticipates later discussions in the course about custom AI accelerators, NPUs, and the enduring trade-off between flexibility and efficiency.
 
 ---
 
 ## 2.11 CUDA as the Decisive Software Abstraction
 
-CUDA provided the programming model that made GPUs usable for general-purpose computing and AI workloads.
+This is where the chapter must end its main argument, because the lecture ends by landing on the key insight: above the GPU hardware sits CUDA, and CUDA is not a minor software API. It is the design choice that made the architecture consequential.
+
+The slides define CUDA as a programming model, a parallel computing platform, an API, and an extensive ecosystem that enables developers to harness NVIDIA GPUs for general-purpose computing and high-performance applications.  ￼ The lecture emphasizes that from 2006 onward, NVIDIA’s success was fundamentally hardware–software co-design driven by CUDA. This is completely aligned with the course’s broader thesis: systems evolve through vertical integration, not hardware in isolation.
+
+Why is CUDA so important? Because it lowers the software development complexity of a throughput machine that would otherwise be too difficult to use effectively. It gives programmers a way to express parallel work, memory hierarchy, and execution structure without requiring them to manually manage every low-level detail of graphics-style hardware. More deeply, it aligns the software model with the hardware’s throughput philosophy. The GPU is built for parallel blocks of regular work. CUDA provides a programming abstraction that lets developers describe such work directly.
+
+The lecture uses a striking slide contrasting a world where ML research might require tens of thousands of lines of low-level code and months of effort with a world where higher-level abstractions collapse that burden dramatically. This is the software side of architectural history. The best hardware in the world does not matter much if the software model is too painful. CUDA solved that pain point at exactly the moment when machine learning workloads were beginning to demand throughput machines.
+
+This is why the lecture closes where it does. Above the GPU, the decisive layer is no longer just hardware optimization. It is software programmability.
 
 ---
 
 ## 2.12 The Lesson of Chapter 2
 
-The CPU optimizes complex instruction streams.
+We can now summarize the chapter’s intellectual arc.
 
-The GPU optimizes massive parallel arithmetic throughput.
+The CPU is a masterpiece of general-purpose optimization. It improves performance through pipelining, branch prediction, out-of-order execution, superscalar issue, compiler-assisted loop unrolling and vectorization, and a carefully tuned memory hierarchy. These mechanisms are all responses to a workload world in which control complexity matters, instruction-level parallelism is limited, and latency hiding must be done with substantial architectural intelligence. The lecture’s review of CPU performance decomposition, instruction execution, branch prediction, out-of-order execution, superscalar design, vectorization, and memory hierarchy all illustrate this worldview.  ￼  ￼
 
-Machine learning workloads align naturally with the GPU philosophy.
+But machine learning workloads are not general-purpose workloads in the same sense. They are dominated by regular, tile-based, high-throughput linear algebra. In this world, a large fraction of the CPU’s sophistication becomes less valuable than raw arithmetic density, high memory bandwidth, and explicit management of locality and parallelism. This is why the GPU emerges. It is not just “more parallel hardware.” It is a different architectural answer to a different optimization problem. The slides make this explicit by framing modern GPUs around throughput, parallelism, raw storage hierarchy exposure, and programmability.  ￼
 
-This sets the stage for the rest of the book.
+The GPU’s path from graphics hardware to AI engine was historically contingent but architecturally coherent. Fixed-function graphics gave way to programmable shaders, then to unified shader architecture, then to CUDA-enabled general-purpose throughput computing, and finally to the tensor-centric accelerators that underpin deep learning today.  ￼  ￼
 
-</script>
+The most important lesson is not simply that GPUs are faster for AI. It is that architecture is workload-driven, and the most important architectural victories happen when hardware structure, software abstraction, and application demand align at the same time.
 
-<script>
-async function render() {
-  const md = document.getElementById("md-source").textContent;
-  const html = marked.parse(md);
-  const content = document.getElementById("content");
-  content.innerHTML = html;
+That is the real bridge from Chapter 1 to the rest of this book.
 
-  if (window.MathJax && MathJax.typesetPromise) {
-    await MathJax.typesetPromise([content]);
-  }
-}
-window.addEventListener("load", render);
-</script>
+In the next chapter, we can descend fully into the GPU itself: streaming multiprocessors, SIMT execution, warp scheduling, memory hierarchy, tensor cores, and the logic of GPU optimization for machine learning. The slides for this lecture already frame that next step by moving from CPU review into modern GPU objectives, memory hierarchy, and SIMT computing.  ￼
 
+If you want, I can now turn this into a more polished final Chapter 2 manuscript with a cleaner section structure and tighter prose, or convert it directly into the same HTML/Markdown book format as Chapter 1.
+  </script>
+
+  <script>
+    async function render() {
+      const md = document.getElementById("md-source").textContent;
+      const html = marked.parse(md, {
+        mangle: false,
+        headerIds: true
+      });
+      const content = document.getElementById("content");
+      content.innerHTML = html;
+
+      if (window.MathJax && MathJax.typesetPromise) {
+        await MathJax.typesetPromise([content]);
+      }
+    }
+
+    window.addEventListener("load", render);
+  </script>
 </body>
 </html>
