@@ -102,7 +102,7 @@ The deepest impending change, however, is not organizational; it is epistemic. F
 
 AI strips away that cover. It does not artificially grant you frontier judgment, but it makes your lack of it impossible to hide.
 
-## Conclusion
+## What Comes After the Quantity Machine
 
 A great researcher does not just solve problems; they manufacture the terrain on which problems are solved.
 
