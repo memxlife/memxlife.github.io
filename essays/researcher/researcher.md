@@ -1,4 +1,4 @@
-# The 100x Researcher: Advisor–Student Leverage and the Great Academic Re-Sorting
+# The Great Academic Re-Sorting: Research, Leverage, and Rare Minds
 
 Academia is a sprawling edifice built upon a capability that the vast majority of its inhabitants do not actually possess.
 
