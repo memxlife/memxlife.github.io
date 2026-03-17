@@ -1,0 +1,627 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chapter 3 - GPU Architecture for Machine Learning Systems</title>
+  <style>
+    :root {
+      --bg: #f7f7fb;
+      --paper: #ffffff;
+      --ink: #1e2430;
+      --muted: #5b6472;
+      --rule: #dde3ee;
+      --accent: #274c9b;
+      --accent-soft: #eef3ff;
+      --code-bg: #f3f5f9;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      line-height: 1.72;
+    }
+    .page {
+      max-width: 980px;
+      margin: 32px auto;
+      background: var(--paper);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.08);
+      border: 1px solid var(--rule);
+    }
+    .inner {
+      padding: 56px 72px 72px 72px;
+    }
+    h1, h2, h3 {
+      font-weight: 700;
+      line-height: 1.22;
+      color: #172033;
+      margin: 0;
+    }
+    h1 {
+      font-size: 2.15rem;
+      margin-bottom: 0.4rem;
+    }
+    h2 {
+      font-size: 1.45rem;
+      margin-top: 2.4rem;
+      margin-bottom: 0.8rem;
+      padding-top: 0.4rem;
+      border-top: 1px solid var(--rule);
+    }
+    h3 {
+      font-size: 1.14rem;
+      margin-top: 1.7rem;
+      margin-bottom: 0.5rem;
+    }
+    p {
+      margin: 0.85rem 0;
+      font-size: 1.05rem;
+      text-align: justify;
+    }
+    .title-block {
+      padding-bottom: 1.5rem;
+      border-bottom: 2px solid var(--rule);
+      margin-bottom: 1.75rem;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 1.08rem;
+      margin-top: 0.35rem;
+    }
+    .source-note {
+      background: var(--accent-soft);
+      border: 1px solid #d7e1fb;
+      padding: 14px 16px;
+      border-radius: 8px;
+      color: #2a3858;
+      margin-top: 1.2rem;
+      font-size: 0.98rem;
+    }
+    .equation {
+      margin: 1rem auto;
+      padding: 0.95rem 1rem;
+      background: #fafbfd;
+      border-left: 4px solid var(--accent);
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: 1.05rem;
+      color: #1b2740;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 16px 18px;
+      overflow-x: auto;
+      font-size: 0.94rem;
+      line-height: 1.5;
+      margin: 1rem 0 1.2rem 0;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+    .small {
+      font-size: 0.96rem;
+      color: var(--muted);
+    }
+    .closing {
+      margin-top: 2.6rem;
+      padding-top: 1.1rem;
+      border-top: 2px solid var(--rule);
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="inner">
+      <div class="title-block">
+        <h1>Chapter 3. GPU Architecture for Machine Learning Systems</h1>
+        <div class="subtitle">From graphics pipeline to general-purpose compute, and from general-purpose compute to modern AI acceleration</div>
+        <div class="source-note">
+          This chapter is a substantially expanded book-style reconstruction of the lecture “GPU Architecture for Machine Learning,” synthesized from the lecture slides and the lecture transcript. The structure has been reorganized into textbook narrative for undergraduate students, but the substantive content, historical arc, examples, and conceptual emphasis have been preserved and expanded rather than shortened.
+        </div>
+      </div>
+
+      <h2>3.1 Why this chapter matters</h2>
+
+      <p>
+        Students who first hear the phrase <em>GPU architecture</em> often form an understandable but misleading mental model. They imagine that a GPU is basically a CPU with many more arithmetic units, and therefore conclude that the GPU is simply a faster CPU. That picture is not completely wrong, because both are processors and both execute instructions over data. Yet as an explanation, it is far too shallow. It misses the key reason why the two architectures diverged, and it hides the most important lesson that machine learning systems students must learn from modern hardware: an architecture is not designed in the abstract. An architecture is designed around a workload. If the workload changes, the architecture eventually changes. If the workload stays the same, then architectural evolution is constrained by that workload’s structure. This is why one of the central claims of the lecture, and one of the central claims of this chapter, is that workload is the king.
+      </p>
+
+      <p>
+        The GPU is not merely “more compute.” It is the result of a different answer to a different optimization problem. The CPU was optimized for low-latency execution of relatively complex sequential threads. The GPU was optimized for high-throughput execution of a massive number of relatively simple operations that can be carried out in parallel. That difference sounds small when stated in one sentence, but it has enormous consequences. It explains why CPUs devote so much chip area to control logic, speculation, caching, and branch prediction, while GPUs devote far more of their area to arithmetic resources and to mechanisms for maintaining many threads in flight. It explains why the GPU first flourished in graphics. It explains why early GPGPU programming was so painful. It explains why Brook and later CUDA mattered so much. It explains why tensor cores appeared when deep learning became dominant. It also explains why, even today, so much of machine learning systems work is really about co-design across algorithms, compilers, runtimes, and hardware.
+      </p>
+
+      <p>
+        This chapter therefore has a very specific educational goal. It does not merely want to tell you a sequence of historical facts. It wants to help you form a causal picture. By the end of the chapter, you should understand not only what modern GPUs contain, but why they contain those components, why those components appeared when they did, what workloads made them necessary, and why modern machine learning fits GPUs so well while other workloads do not.
+      </p>
+
+      <h2>3.2 From single-thread thinking to throughput thinking</h2>
+
+      <p>
+        The lecture begins by contrasting CPU and GPU. That contrast is not merely a matter of marketing categories; it is the most direct way to understand the design philosophy behind modern accelerators. To make the contrast precise, we should begin with the idea of a thread. In this course, when we talk about a thread, we are not primarily using the full operating-systems definition. We are using a computational definition. A thread is a sequential stream of instructions intended to run in order. When a programmer writes an ordinary program in C, C++, or Python, they usually write code as if one instruction follows another. They do not explicitly annotate every possible micro-level parallelism opportunity inside the thread. Instead, the burden of discovering those opportunities falls on compilers, runtimes, and the processor hardware itself.
+      </p>
+
+      <p>
+        A modern CPU is astonishingly sophisticated precisely because it tries to make a single thread run fast. It fetches instructions, decodes them, predicts branches, renames registers, tracks dependencies, speculates on future control flow, reorders execution, and uses deep cache hierarchies to reduce memory access latency. Many of these components do not directly perform arithmetic on application data. Instead, they exist to support the execution of one or a few complex threads with minimal latency. Even after decades of work, however, the amount of instruction-level parallelism that can usually be extracted from one thread remains limited. The lecture emphasizes that one may often discover only on the order of four to eight instructions that can run in parallel within a single sequential thread, and obtaining even that level of performance requires tremendous software and hardware sophistication.
+      </p>
+
+      <p>
+        The GPU begins from a different observation. Suppose the workload is not one difficult thread that must be made extremely fast. Suppose instead the workload consists of a huge collection of data elements that can all be processed in the same way and with very few dependencies between them. In that case, it no longer makes sense to devote most of the chip to sophisticated machinery for extracting limited instruction-level parallelism from one thread. Instead, it becomes natural to simplify the control side and replicate the compute side. This is the conceptual jump from CPU thinking to GPU thinking.
+      </p>
+
+      <p>
+        In the lecture, this change is described using the notion of a <em>stream</em>. A stream is not just “data flowing somewhere” in an intuitive sense. A stream is a workload structure: a large collection of data elements that can be processed independently, or at least independently enough that the architecture can expose large-scale parallelism. If the data elements do not strongly depend on one another, then the system can run many threads at once without paying the cost of heavy coordination between them. The GPU therefore does not care nearly as much about maximizing the latency performance of one single thread. Instead, it cares about overall throughput. That is a fundamental architectural choice, not a secondary implementation detail.
+      </p>
+
+      <div class="equation">
+        Thread-centric CPU view: optimize latency of one thread.<br/>
+        Stream-centric GPU view: optimize throughput across many similar operations.
+      </div>
+
+      <p>
+        The lecture offers a very useful chip-area intuition for this distinction. In a CPU, only a relatively small portion of the die may be devoted to the arithmetic logic units that directly compute on data. Much of the rest supports control and memory behavior. If one wanted to conceptually “turn a CPU into a GPU,” one crude way to think about it would be the following. First remove much of the heavy single-thread optimization logic. Then keep the arithmetic part. Then replicate that arithmetic part many times. Then share instruction fetch and decode where the same instruction stream applies to many data elements. Finally organize the storage and scheduling so that many operations can remain in flight simultaneously. This is not literally how GPU history happened transistor by transistor, but it is a very good mental model for why a throughput processor looks so different from a latency processor.
+      </p>
+
+      <p>
+        Another essential point appears here. The lecture stresses that the hard constraint for modern high-performance processors is power. Students are often tempted to think that the central bottleneck is still transistor count or raw silicon area. Historically that was important, but modern chips are power-constrained machines. Raising clock frequency aggressively is expensive in power. This is one reason GPUs evolved toward many parallel arithmetic resources running at more moderate frequencies, rather than toward a small number of extremely high-frequency, highly speculative cores. The GPU accepts lower single-thread speed because it can compensate with scale. That tradeoff only works because the workload permits it.
+      </p>
+
+      <h2>3.3 Three generations of GPU evolution</h2>
+
+      <p>
+        Once we adopt the workload-centered view, the historical evolution of the GPU becomes easier to understand. The lecture divides that evolution into three broad generations. The first generation runs from the earliest graphics accelerators through roughly the end of the 1990s. In this phase the GPU is primarily a fixed-function machine. It accelerates rendering, but it does so through a pipeline whose operations are largely predetermined by the hardware. It is fast for its intended task, but it is not a general computational platform.
+      </p>
+
+      <p>
+        The second generation begins in the early 2000s, when transistor budgets become large enough that limited programmability becomes possible. This is the era in which the term GPU becomes associated not merely with graphics acceleration but with a programmable graphics processor. Important stages in the graphics pipeline become software-programmable. At this point researchers and engineers begin to ask whether the graphics chip can do more than graphics.
+      </p>
+
+      <p>
+        The third generation emerges after around 2010, when the non-graphics use cases become sufficiently clear and sufficiently important that the GPU begins to evolve explicitly into a general-purpose parallel computing platform. In the early part of this era, scientific computing, linear algebra, data mining, and image-related workloads motivate the transition. In the later part, deep learning and large language models become the dominant drivers. The lecture makes an especially important point here: after this shift, GPU architecture is no longer a purely hardware story. It becomes a software-hardware co-design story, deeply shaped by CUDA and by the workloads that CUDA makes practical.
+      </p>
+
+      <p>
+        This three-generation view is pedagogically useful because it prevents students from imagining that today’s GPU appeared all at once. Modern GPUs are layered historical objects. Pieces of graphics logic, pieces of general-purpose compute logic, specialized tensor hardware, multiple memory layers, and software abstractions all coexist because they arrived in response to different pressures at different times. If one does not understand the historical layering, modern GPU architecture can look like an arbitrary collection of blocks. In reality it is a sequence of responses to repeatedly changing workloads.
+      </p>
+
+      <h2>3.4 The graphics pipeline as the origin of GPU computing</h2>
+
+      <p>
+        To understand why the GPU first became useful for non-graphics applications, we must understand the graphics pipeline itself. The lecture carefully reconstructs this pipeline, and it is worth doing so again here in narrative form. Imagine a three-dimensional object represented as a mesh. That mesh contains many vertices. The first main task of the graphics pipeline is to transform those vertices from model space to world space, then from world space to camera space, and finally from camera space to screen space. This vertex transformation stage involves geometric operations such as translation, rotation, and scaling. These are naturally expressed with matrix operations. Already we can see the seeds of later GPGPU thinking: graphics is not just drawing pictures. It is full of structured numerical computation.
+      </p>
+
+      <p>
+        After vertex transformation comes shape or primitive assembly. Here the system takes neighboring vertices and connects them into geometric primitives, usually triangles. Triangles are crucial because they define surfaces. A surface can interact with light, can be oriented in space, and can be approximated efficiently by hardware. But triangles at this stage are still geometric objects. They are not yet discrete image elements. That conversion happens during rasterization.
+      </p>
+
+      <p>
+        Rasterization takes geometric primitives and converts them into fragments or pixels. If a triangle covers part of the screen, rasterization determines which discrete screen locations belong to that triangle. Once this step is complete, the pipeline has moved from geometry to image-space computation. It is then the job of the pixel shader, also called the fragment shader, to determine the final value associated with each fragment. This may include color calculation, lighting, texture lookup, blending of texture values, reflections, shadows, normal mapping, and many other effects.
+      </p>
+
+      <p>
+        Finally, the raster operations pipeline, often shortened to ROP, performs operations such as depth testing, stencil testing, blending, anti-aliasing, and writing the final result to memory. The lecture emphasizes that in graphics-era GPUs some stages were programmable and some remained fixed. By the time of processors such as the GeForce 7800, the vertex stage and the pixel stage were programmable, while the final raster operations stage was largely fixed-function. This asymmetry is important. It meant that the GPU already contained substantial programmable floating-point capacity, but that capacity was still embedded inside a graphics-oriented pipeline.
+      </p>
+
+      <p>
+        The phrase used in the slides, “GPU is a massive shader,” is very instructive. It captures the fact that much of the computational heart of the early programmable GPU was concentrated in the shading stages. That is precisely why researchers began asking whether those stages could be repurposed for scientific computation. If the pixel shader can perform a large number of arithmetic operations per cycle, and if each pixel is computed largely independently, then perhaps a non-graphics workload with the same structure can run there as well.
+      </p>
+
+      <h2>3.5 Programmable does not mean programmer-friendly</h2>
+
+      <p>
+        At this point the lecture makes a subtle but essential distinction. A machine can be programmable without being convenient to program. This point is often forgotten by students who encounter modern CUDA first and therefore never experience the earlier pain. On processors such as the GeForce 7800, the programmable parts of the graphics pipeline were indeed programmable. The hardware supported floating-point arithmetic, vector operations such as dot products, texture access, special function operations, some control flow, and movement of data between registers and outputs. In that sense, the hardware was powerful. But from the perspective of a scientist, finance researcher, or machine learning practitioner, it was still profoundly unfriendly.
+      </p>
+
+      <p>
+        Why was it unfriendly? Because the programmer had to reason in the language of graphics even when the problem was not graphics. The fragment shader might have enough arithmetic capability to support non-graphics work, but the surrounding system still expected textures, rasterization passes, render targets, and framebuffers. If one wanted to compute an FFT, a matrix multiply, a segmentation operation, or some other scientific workload, one had to map that problem onto graphics primitives. This was not just syntactic inconvenience. It forced the programmer to think about the problem incorrectly. Instead of thinking “I have an input array and a function I want to apply to it,” they had to think “How do I store my data as pixels, and how do I cause the graphics system to render a picture whose pixel values represent my answer?”
+      </p>
+
+      <p>
+        The lecture’s emphasis on the frame buffer is useful here. In normal graphics, the pipeline writes its result to the frame buffer because the goal is display. But in scientific or machine learning computation, the result of one stage is often the input to the next. The frame buffer is therefore the wrong destination. Researchers learned to redirect output into texture memory so that the result of one rendering pass could become the input to a later pass. This hack worked, but the fact that it had to exist at all tells us how alien the programming model was.
+      </p>
+
+      <h2>3.6 Early GPGPU as a hack on top of graphics</h2>
+
+      <p>
+        The early period of GPGPU can be understood as a systematic hijacking of the graphics pipeline. The lecture walks through the logic in a clear way. Any general computation needs at least two things. First, it needs a place to store data. Second, it needs arithmetic units to transform that data. In graphics-era GPUs, texture memory provided the storage and fragment shaders provided the arithmetic.
+      </p>
+
+      <p>
+        Why could data be stored as textures? Because many numerical workloads involve structured arrays, matrices, or fields. A one-dimensional array could be represented as a one-dimensional texture. A matrix could be represented as a two-dimensional texture. A volumetric physical field could be represented as a three-dimensional texture. Each element of the scientific data structure could be treated as if it were a pixel or texel. This was not how the graphics hardware designers originally imagined the data, but the representation was close enough to make the trick possible.
+      </p>
+
+      <p>
+        Why could computation be expressed through fragment shaders? Because a fragment shader already applies arithmetic and filtering operations independently to a large number of image-space elements. If the non-graphics workload also consists of many independent data elements, then a fragment shader can play the role of a compute kernel. This observation is the real conceptual bridge between graphics and later GPU computing. It is not that graphics and scientific computing are identical. It is that they share a particular structural property: many outputs can be computed in parallel from corresponding inputs.
+      </p>
+
+      <p>
+        But the mapping was still painful. The GPU did not naturally support loops over arrays in the way a scientific programmer expected. Instead, one often had to use rasterization itself as the mechanism for iteration. A screen-aligned rectangle whose size matched the texture could be rendered, thereby forcing the shader to execute once per texture element. If the workload was larger than the renderable domain, the data had to be partitioned into tiles and processed across multiple passes. These were clever solutions, but they reveal the underlying mismatch. A rendering pipeline had to be bent into the shape of a compute engine.
+      </p>
+
+      <p>
+        The lecture also highlights the limits of the fragment shader. It supported arithmetic logic unit operations, vector operations, special function units, texture memory access, control flow instructions, data movement, and output writes. This was enough to tempt researchers. Yet the memory semantics remained highly constrained. In many cases the output at location <em>i</em> had to be written back to the corresponding output location <em>i</em>. General scatter was absent. Shared memory was absent. Atomics were absent. Read-modify-write patterns were constrained. These limitations were acceptable for graphics because the graphics problem did not demand arbitrary write patterns. For general-purpose computing they were deeply frustrating.
+      </p>
+
+      <p>
+        As a result, early GPGPU programmers had to manually manage render passes, manually encode arrays as textures, avoid “illegal” memory patterns, and even debug through visualization. The lecture captures the absurdity nicely: to use the GPU for a domain application, one almost had to imagine how to draw a picture whose pixels represented the answer. This is why early GPGPU was both exciting and miserable. The performance promise was real, but the abstraction was wrong.
+      </p>
+
+      <h2>3.7 Brook and the search for the right abstraction</h2>
+
+      <p>
+        The transition from this awkward world to something much more usable is inseparable from Ian Buck’s Brook project. The lecture presents Brook not as a minor language proposal but as a pivotal moment in computer history, and that characterization is justified. Brook asked a simple but profound question: if GPUs are becoming dramatically faster than CPUs for certain classes of operations, what is the right abstraction that allows non-graphics programmers to access that performance without becoming graphics experts?
+      </p>
+
+      <p>
+        The lecture reconstructs Buck’s motivation through a performance trend observed in the early 2000s. GPU floating-point throughput was growing far faster than CPU floating-point throughput. More importantly, the trajectories were diverging. The point was not merely that GPUs happened to be faster in one benchmark. The point was that the gap seemed likely to widen. If that was true, then a poor programming model would become an increasingly serious barrier to progress. The hardware opportunity was too large to ignore.
+      </p>
+
+      <p>
+        Buck therefore posed three questions. Can GPU programming be simplified? What is the correct abstraction for GPU-based computing? And what is the scope of problems that can be implemented efficiently on the GPU? These questions are tightly coupled. A bad abstraction can make simple things difficult and make performance unpredictable. A good abstraction can reveal the true class of workloads for which the hardware is suitable.
+      </p>
+
+      <p>
+        Brook’s answer was elegant because it matched the actual structure of the hardware and the workloads. Brook introduced the notions of <em>streams</em> and <em>kernels</em>. A stream was a collection of records requiring similar computation. A kernel was a function applied independently across stream elements. This was a beautiful move because it expressed exactly the two conditions that made GPUs worthwhile. First, streams expose data parallelism. Second, kernels embody the actual computation and can be analyzed in terms of arithmetic intensity.
+      </p>
+
+      <p>
+        The programming model was intentionally simple. It was not a completely alien language. It was closer to C with modest extensions. This was a critical design choice. The lecture makes the excellent point that whenever one invents a completely new language, adoption becomes difficult. Buck therefore made the abstraction easier to accept by staying close to familiar syntax. Programmers could write something that looked like a per-element function and trust the compiler and runtime to map it onto the graphics hardware.
+      </p>
+
+      <pre><code>kernel void foo (float a&lt;&gt;, float b&lt;&gt;, out float result&lt;&gt;) {
+    result = a + b;
+}</code></pre>
+
+      <p>
+        The beauty of this model is that the programmer thinks in terms of one data element at a time, while the implementation replicates that computation across a large stream. In ordinary C one might write a loop over all elements. In Brook one writes the local computation once and lets the system handle the global replication. This is already extremely close to the mindset of modern GPU programming.
+      </p>
+
+      <p>
+        Brook also included the broader toolchain needed to make the abstraction practical. There was a compiler, brcc, which translated Brook code into shader-oriented forms such as Cg or HLSL, and there was a runtime, brt, which managed stream textures and kernel execution. This reminds us that a programming model is never just syntax. It always includes compilation, resource management, and execution support.
+      </p>
+
+      <h2>3.8 Why some applications win on GPUs and others do not</h2>
+
+      <p>
+        One of the great strengths of Buck’s work, and one of the strongest pedagogical moments in the lecture, is that it does not treat GPU speedup as magic. Instead it asks: when do GPUs actually outperform CPUs? The answer is deeply connected to two properties that recur throughout the lecture and that every machine learning systems student should remember: data parallelism and arithmetic intensity.
+      </p>
+
+      <p>
+        The lecture frames this through a broader systems principle that should remain with you well beyond GPU history. Compute is becoming cheap. Large storage is comparatively slow. Communication is constrained by physics. This means that modern performance arguments cannot stop at counting arithmetic units. A machine may have enormous nominal compute throughput, but if useful data cannot be delivered to those units efficiently, the machine’s real performance collapses toward the communication boundary. Arithmetic intensity is therefore not a secondary technical term. It is a compact way of asking whether a workload contains enough useful work per transferred word to justify using a throughput machine.
+      </p>
+
+      <p>
+        Data parallelism means that many data elements can be processed independently. Arithmetic intensity means that the amount of computation performed per unit of transferred data is high enough that the cost of communication does not dominate execution. It is not sufficient that a workload simply contain many data elements. If each data element requires only a trivial operation, then the overhead of moving data to and from the GPU can overwhelm any arithmetic advantage.
+      </p>
+
+      <div class="equation">
+        Arithmetic intensity = computation / communication.
+      </div>
+
+      <p>
+        Matrix multiplication provides the canonical example. If we multiply an \(n \times n\) matrix by another \(n \times n\) matrix, the arithmetic work scales as \(O(n^3)\), while the stored data scale is \(O(n^2)\). The ratio therefore grows like \(O(n)\). Larger matrices therefore become increasingly attractive GPU workloads. This is one reason large-model machine learning maps so naturally onto GPUs: it is dominated by exactly these sorts of operations.
+      </p>
+
+      <p>
+        The lecture discusses early Brook evaluation results through examples such as SAXPY, FFT, segmentation, and SGEMV. The point of those examples is not merely historical. It is conceptual. Some workloads show large speedups because they have little data reuse and high effective parallelism. Others show weaker results because they require more communication, more synchronization, or more structured reuse that the hardware of the day could not exploit efficiently. FFT, for example, has staged dependencies and can benefit strongly from CPU cache locality. SGEMV has much lower arithmetic intensity than matrix multiplication. Such examples train the student to reason structurally rather than emotionally. A GPU is not “good” or “bad” in the abstract. It is a machine whose benefits appear when the workload exhibits the right properties.
+      </p>
+
+      <p>
+        Another key consideration was transfer overhead. In early systems, CPU and GPU memory spaces were separate. The application lived on the CPU side. Data had to be transferred across the interconnect to the GPU, processed there, and then returned. The lecture emphasizes that this cost cannot be ignored. One must compare the CPU baseline not just against raw GPU arithmetic throughput, but against the entire end-to-end path including launch and transfer overhead. This mindset remains essential even today. Modern accelerators are powerful, but data movement remains expensive.
+      </p>
+
+      <p>
+        Finally, Brook showed that abstraction did not necessarily destroy performance. Its implementations could achieve performance within roughly eighty percent of hand-coded GPU versions in some cases. That result was extremely important. It meant that a higher-level abstraction could still be close enough to hardware efficiency to matter in practice.
+      </p>
+
+      <h2>3.9 From Brook to CUDA: software-hardware co-design becomes explicit</h2>
+
+      <p>
+        The lecture uses a very effective teaching question here: after Brook, what was still missing? If Brook already provided a better programming model, why was that not the end of the story? The answer is that Brook, impressive as it was, was still built on top of hardware designed for graphics. The software could virtualize and reinterpret the hardware, but it could not fundamentally remove hardware constraints that had never been intended for general-purpose workloads.
+      </p>
+
+      <p>
+        Once Ian Buck joined NVIDIA, that changed. The lecture frames this transition very clearly. While at Stanford, he could build the software side. At NVIDIA, he could influence the hardware side. From that point onward, GPU evolution became explicitly driven by the needs of CUDA and by the workloads CUDA enabled. This is one of the most important examples of software-hardware co-design in modern computing.
+      </p>
+
+      <p>
+        The required changes were substantial. Graphics-era constraints had to be removed or weakened. The instruction set had to become richer, extending beyond floating-point shading operations to include integer operations, bit operations, more flexible control flow, and more general memory instructions. General load and store had to replace the old graphics-oriented access patterns. Scatter and gather had to be supported. Pointer-based addressing had to become meaningful. Thread identifiers had to be available in one, two, or three dimensions so that programmers working with vectors, matrices, and physical grids could express their problems naturally.
+      </p>
+
+      <p>
+        Most importantly, the memory hierarchy had to change. Early graphics pipelines lacked the kind of explicitly managed, on-chip shared memory that general-purpose parallel programs need for cooperation among nearby threads. CUDA-era GPUs introduced shared memory that allowed threads within a local group to communicate quickly without constantly returning to off-chip DRAM. This was a profound architectural step. It meant that programs with producer-consumer structure or tiled linear algebra could exploit local reuse efficiently.
+      </p>
+
+      <p>
+        The lecture summarizes this evolution well: over roughly the decade from 2000 to 2010, GPU hardware moved from graphics-oriented programmability toward genuine general-purpose programmability. CUDA was the software face of that change. On one level CUDA can be described simply as “C on the GPU.” But that phrase should not mislead students into underestimating its importance. What CUDA really did was establish a new contract between programmers and a throughput-oriented processor array.
+      </p>
+
+      <pre><code>__global__ void KernelFunc(...);
+__shared__ int SharedVar;
+KernelFunc&lt;&lt;&lt;500, 128&gt;&gt;&gt;(...);</code></pre>
+
+      <p>
+        Notice how small the surface syntax changes are. There is a qualifier for a kernel. There is a qualifier for shared memory. The launch syntax specifies the execution configuration. There are explicit memory management functions such as <code>cudaMalloc</code>, <code>cudaFree</code>, and <code>cudaMemcpy</code>. The genius of CUDA lies partly in how little it asks the programmer to sacrifice in familiarity while still exposing the essential structure of the machine.
+      </p>
+
+      <h2>3.10 The rise of the CUDA ecosystem</h2>
+
+      <p>
+        The lecture correctly insists that an industrial platform is more than a language, compiler, and runtime. In academia, a prototype can succeed by demonstrating feasibility. In industry, a platform succeeds only if an ecosystem forms around it. CUDA’s growth therefore involved not only language design and hardware design, but also libraries, tools, documentation, educational outreach, and low-level access points for experts.
+      </p>
+
+      <p>
+        This is why the lecture mentions domain libraries and multiple levels of software stack. Some users want a high-level interface. Others want to work close to PTX. Still others want optimized libraries for common routines. CUDA therefore accumulated ecosystems such as cuBLAS for dense linear algebra, cuFFT for Fourier transforms, cuSPARSE for sparse operations, cuRAND for random number generation, and additional libraries for image and video processing. This matters pedagogically because students must understand that high-performance computing platforms become useful not only by exposing hardware, but by turning common patterns into reusable, highly optimized components.
+      </p>
+
+      <p>
+        The lecture also connects this ecosystem story to present-day ML practice by referring to lower-level optimization work done in PTX-like layers and by drawing a parallel with modern abstractions such as Triton. This is a very important bridge. It reminds students that abstraction versus performance is never a fully solved problem. New layers continue to appear because we repeatedly seek a sweet spot between programmability and control.
+      </p>
+
+      <h2>3.11 Unified shader architecture and the emergence of the streaming multiprocessor</h2>
+
+      <p>
+        A major milestone in GPU history came with the unified shader architecture introduced in the GeForce 8800 generation and associated with Tesla. Before this transition, resources were more tightly tied to particular graphics stages. After the transition, programmable resources became more flexible and more general. The lecture emphasizes that from this point onward we begin to encounter the architectural vocabulary that still dominates GPU discussions today.
+      </p>
+
+      <p>
+        The most important term here is the <em>streaming multiprocessor</em>, or SM. An SM is the fundamental execution cluster in an NVIDIA GPU. It contains multiple CUDA cores, load/store units, special function units, a large register file, shared memory, scheduling logic, and instruction dispatch mechanisms. The reason the SM matters so much pedagogically is that it is where the abstract programming model meets the physical machine. When students later learn about blocks, shared memory, warps, and occupancy, those concepts all become much easier to understand once they realize that the SM is the local neighborhood in which those phenomena happen.
+      </p>
+
+      <p>
+        The lecture gives an illustrative description of a Fermi-era SM. It includes multiple CUDA processors, load/store units, special function units, configurable shared memory and L1 cache, a large register file, and warp schedulers. The architectural message is clear. The SM is not a single core in the CPU sense. It is a throughput-oriented cluster that supports many threads at once and relies on local storage and scheduling to keep computation active while some threads wait for memory.
+      </p>
+
+      <p>
+        The lecture also emphasizes the nature of the CUDA core. A CUDA core is a general-purpose arithmetic execution unit designed to handle floating-point, integer, and bitwise operations. But it is scalar. This point matters a great deal. Students sometimes imagine a CUDA core as though it were already a matrix processor. It is not. A CUDA core handles one scalar operation per thread per cycle. Large-scale matrix multiplication therefore emerges from coordinating many such scalar operations unless and until specialized tensor hardware is added.
+      </p>
+
+      <h2>3.12 Why CUDA cores were not enough for modern AI</h2>
+
+      <p>
+        By around 2010, GPUs had become genuinely general-purpose in the sense that they could execute a wide range of parallel workloads. But once programmability ceased to be the dominant bottleneck, performance reemerged as the main issue. The lecture frames this transition sharply. If modern AI workloads are dominated by matrix multiplication, and if a CUDA core is fundamentally a scalar unit, then using only CUDA cores for matrix multiplication is not the most efficient way to spend silicon area or energy budget.
+      </p>
+
+      <p>
+        This is where the lecture’s emphasis on workload again becomes crucial. The dominant AI workload is not arbitrary scalar arithmetic. It is highly structured dense linear algebra. Matrix multiplication has beautiful properties from a GPU perspective. It is massively parallel, and it has high arithmetic intensity. But those properties alone do not guarantee maximal hardware efficiency. If the hardware primitive is scalar while the application primitive is a matrix tile multiply-accumulate, then there is still a mismatch.
+      </p>
+
+      <p>
+        Tensor cores are the answer to that mismatch. Rather than asking the machine to synthesize large matrix products from enormous numbers of scalar operations, tensor cores directly accelerate matrix-tile operations. The lecture explains this by returning to the mechanics of matrix multiplication itself. At the computational level, a matrix product is built from repeated row-column dot products. If one rotates one of the operand views in one’s mental picture, the operation can be understood as many multiply-and-accumulate structures working in parallel on corresponding elements. Tensor cores internalize this structure in hardware.
+      </p>
+
+      <p>
+        This changes the granularity of the primitive operation. CUDA cores are best thought of as thread-level scalar engines. Tensor cores are best thought of as tile-level matrix engines. That shift dramatically improves floating-point throughput per unit area and improves energy efficiency, because the control and communication overhead per useful arithmetic operation decreases.
+      </p>
+
+      <div class="equation">
+        CUDA-core mental model: scalar or vector arithmetic.<br/>
+        Tensor-core mental model: matrix-tile multiply-accumulate.
+      </div>
+
+      <p>
+        The lecture highlights the magnitude of the difference. Once tensor cores enter the design, matrix-heavy workloads can see order-of-magnitude performance improvements compared with reliance on CUDA cores alone. It also notes that roughly speaking, on modern GPUs, a very substantial fraction of the silicon budget is devoted to tensor-style computation, another substantial fraction to CUDA-style general computation, and the rest to the memory and support structures needed to feed them. The exact percentages vary by generation, but the broader message is correct: once AI became dominant, the architecture itself reallocated area in response.
+      </p>
+
+      <h2>3.13 Precision formats and the deep connection between numerics and architecture</h2>
+
+      <p>
+        Tensor cores are not only about changing the computational primitive. They are also closely tied to changing the numerical representation. The lecture moves naturally from tensor cores to precision formats and does so for a good reason. In modern AI hardware, throughput gains come not just from more transistors or better organization, but from the ability to process reduced-precision representations efficiently while maintaining useful model quality.
+      </p>
+
+      <p>
+        Historically, scientific computing often privileged FP64. Later GPUs made FP32 central for graphics and general compute. Deep learning then accelerated the transition toward FP16 and BF16. More recently, AI hardware has increasingly embraced FP8 and even FP4 in some settings. The lecture is particularly forceful on the importance of number representation, and rightly so. A very large fraction of the long-term performance gain in AI hardware has come from reducing the number of bits per value, thereby lowering storage cost, reducing movement cost, and enabling more operations per cycle.
+      </p>
+
+      <p>
+        This is an especially important lesson for machine learning systems students because it demonstrates that hardware performance cannot be analyzed independently of algorithmic stability. Moving from FP32 to FP16 is not merely a hardware event. It requires training procedures, normalization behavior, scaling methods, and numerical strategies that tolerate lower precision. Moving further to FP8 or FP4 raises the challenge again. The lecture points toward this by arguing that the remaining “low-hanging fruit” may involve pushing from 4-bit toward 1-bit representations, but that such progress cannot come from hardware alone. The model and the optimization method must be redesigned accordingly.
+      </p>
+
+      <h2>3.14 The new bottleneck: data movement</h2>
+
+      <p>
+        Once tensor computation becomes dramatically faster, a new bottleneck inevitably becomes dominant: getting data to the compute units quickly enough. This is one of the deepest architectural transitions in modern AI hardware. If the machine can perform much more arithmetic per cycle than before, but data still arrive through an off-chip memory hierarchy constrained by latency and bandwidth, then the system increasingly becomes movement-bound rather than compute-bound.
+      </p>
+
+      <p>
+        The lecture emphasizes the physical nature of this problem. Even if one uses higher-bandwidth memory technologies such as HBM, the latency of off-chip access does not disappear. Data still begin in off-chip memory. They must travel through the memory hierarchy, into caches, into shared memory, into registers, and then finally into the compute units. The path from HBM to tensor core is long, and each stage matters. This is why the lecture stresses that communication is bounded by physics. One can engineer around the bottleneck, hide it, overlap it, and reduce wasted motion, but one cannot simply wish it away.
+      </p>
+
+      <p>
+        The classical GPU response to memory latency is thread-level latency hiding. If one set of threads is waiting for data, another set of ready threads can compute. This is one reason GPUs keep so many threads resident. But as the arithmetic units become more specialized and more powerful, simply having many threads is not always enough. The machine also benefits from more specialized mechanisms for moving data in large, structured chunks.
+      </p>
+
+      <h2>3.15 Tensor Memory Accelerator and asynchronous data movement</h2>
+
+      <p>
+        The Tensor Memory Accelerator, or TMA, is introduced in the lecture as one such mechanism. TMA is easiest to understand by analogy with DMA, direct memory access. In a conventional DMA scenario, the CPU specifies a transfer and dedicated hardware handles the movement of a block of data, rather than forcing the CPU to move each element explicitly. TMA does something similar for tensor-oriented GPU workloads. It allows structured movement of tensor tiles between global memory and shared memory using hardware support rather than requiring many ordinary threads to perform the movement manually.
+      </p>
+
+      <p>
+        This has several benefits. First, it reduces instruction overhead. If ordinary threads have to load many elements individually, those loads consume instruction slots and register resources. Second, it reduces synchronization pain. If many threads independently request memory, the exact timing of their requests and returns can vary, which can introduce pipeline bubbles. Third, it enables more effective overlap of computation with communication because the transfer can proceed asynchronously while other useful work continues.
+      </p>
+
+      <p>
+        The lecture is also careful to note the downside. Whenever hardware takes over more responsibility, the runtime behavior may become less transparent to the programmer. Explicit software-managed data movement is laborious but often predictable. Hardware-managed asynchronous movement can be faster overall but harder to reason about exactly. This is an important systems tradeoff. Performance and predictability do not always increase together.
+      </p>
+
+      <p>
+        The lecture’s treatment of TMA is especially valuable because it teaches students to think beyond static block diagrams. Hardware features do not merely “exist.” They change the nature of optimization. Once TMA is introduced, some old software bottlenecks disappear, but some new kinds of reasoning difficulty appear. Modern systems work often looks exactly like this: solving one problem shifts the difficulty elsewhere.
+      </p>
+
+      <h2>3.16 Special instructions and what “more FLOPS” really means</h2>
+
+      <p>
+        Another valuable portion of the lecture concerns special instructions such as FMA, half-precision dot products, tensor-core matrix instructions, and integer matrix instructions. Students often hear marketing claims about teraFLOPS and assume that those numbers arise purely from more cores or higher clock speed. In reality, the semantics of the supported instructions matter enormously.
+      </p>
+
+      <p>
+        Fused multiply-add is a good example. In machine learning and linear algebra, expressions of the form \(a \times b + c\) appear constantly. If multiplication and addition are executed as separate instructions, then the intermediate result must be written somewhere and read again. This costs communication and latency. If they are fused, that intermediate traffic is reduced. Thus the instruction itself embodies an optimization of a common computational motif. The lecture humorously calls this “almost like cheating” when vendors count both the multiply and the add toward advertised floating-point totals, but the deeper point is not the marketing. The deeper point is that hardware throughput depends heavily on which compound operations the hardware directly supports.
+      </p>
+
+      <p>
+        Half-precision dot products and tensor matrix instructions extend the same logic. Rather than asking software to synthesize every pattern from scalar operations, the hardware increasingly exposes primitives that match the recurrent algebraic patterns of the workload. In a matrix-dominated AI world, this makes perfect sense. Workload once again governs which instructions deserve hardware support.
+      </p>
+
+      <p>
+        The lecture’s rough decomposition of long-term performance gain is also very useful. Performance growth came not from one source but from several: improved number representation, richer instructions, fabrication process advances, sparsity exploitation, and larger die sizes. What is striking is that representation itself contributes a very large share. This is exactly why low-bit machine learning is not a niche subtopic. It sits close to the center of the performance story.
+      </p>
+
+      <h2>3.17 The GPU as accelerator in a larger system</h2>
+
+      <p>
+        Even after all these changes, the lecture reminds students that the GPU is still usually used as an accelerator attached to a CPU. This is an important systems perspective. The GPU is not floating in isolation. A human developer typically edits code, runs development tools, launches jobs, debugs execution, and manages the broader application flow from the CPU side. The GPU is then invoked to carry out the computationally intensive parts.
+      </p>
+
+      <p>
+        This host-device relationship shapes the software model. Data are typically prepared in host memory, copied to device memory, processed by one or more kernels, and then copied back. Although increasingly integrated systems blur the separation between host and device memory, the mental model remains important. Students should not think of GPU programming as simply “writing parallel code.” They should think of it as partitioning a broader application into host-resident and device-resident components and then managing the communication between them carefully.
+      </p>
+
+      <pre><code>// Conceptual host-device flow
+prepare_host_data();
+cudaMemcpy(device_input, host_input, ...);
+Kernel&lt;&lt;&lt;grid, block&gt;&gt;&gt;(device_input, device_output);
+cudaMemcpy(host_output, device_output, ...);</code></pre>
+
+      <p>
+        The lecture stresses that this final copy-back step is real and cannot be hand-waved away. If the programmer ignores data movement, the resulting performance intuition will be wrong. The accelerator is powerful, but the boundary matters.
+      </p>
+
+      <h2>3.18 Kernel thinking: one local computation, many global instances</h2>
+
+      <p>
+        A kernel is the entry point for GPU computation. But the important conceptual point is not merely that it runs on the device. The important point is that it expresses one local computation pattern that will be instantiated many times. When a programmer writes a kernel, they do not usually write the entire global control flow of the problem in one place. Instead, they write what one thread should do for one data item or one local task. The machine then launches many such threads.
+      </p>
+
+      <p>
+        This is one of the reasons the GPU model is both elegant and initially confusing. It is elegant because one writes the local rule once. It is confusing because the programmer must remember that the global behavior emerges from the simultaneous execution of many such local instances. The lecture repeatedly returns to this idea when discussing Brook, CUDA, and thread mapping. It is worth emphasizing again because this local-global distinction is at the heart of most parallel programming.
+      </p>
+
+      <h2>3.19 Why grids, blocks, and threads are hierarchical</h2>
+
+      <p>
+        One of the most insightful classroom questions in the lecture asks why the CUDA execution model uses the hierarchy of grids, blocks, and threads at all. If a programmer has one million data elements to process, why not simply launch one million threads in one flat pool and allow the runtime to decide everything automatically?
+      </p>
+
+      <p>
+        The answer is that the hardware memory hierarchy is not flat. The data may begin in a global memory space, but once work is assigned to the machine, locality begins to matter. Threads that reside together within one streaming multiprocessor can share fast local resources such as shared memory and nearby register-managed state. Threads that end up on different SMs communicate far more expensively. Therefore the software model groups threads into blocks, with the expectation that one block executes on one SM and therefore benefits from local storage and synchronization.
+      </p>
+
+      <p>
+        This is one of the most important architectural correspondences students should internalize:
+      </p>
+
+      <div class="equation">
+        Grid ↔ all work for a kernel.<br/>
+        Block ↔ a local group of threads intended to share an SM’s local resources.<br/>
+        Thread ↔ one logical instance of the local computation.
+      </div>
+
+      <p>
+        The lecture emphasizes that the hierarchy exists because the memory hierarchy exists. If the memory system were perfectly flat, then a flat thread space might be enough. But because communication cost depends on where threads live, the execution model must expose some of that locality structure.
+      </p>
+
+      <h2>3.20 Thread indexing and the mapping from execution space to data space</h2>
+
+      <p>
+        Once the thread hierarchy exists, each thread must determine which data element it should process. In one dimension, CUDA uses a simple linearization formula. If <code>blockIdx.x</code> is the block index, <code>blockDim.x</code> is the number of threads per block, and <code>threadIdx.x</code> is the thread index within the block, then the global thread index is
+      </p>
+
+      <div class="equation">
+        i = blockIdx.x × blockDim.x + threadIdx.x.
+      </div>
+
+      <p>
+        The lecture walks through this logic carefully using a simple example in which each block contains four threads. The first block covers indices 0 through 3, the second block covers indices 4 through 7, and so on. This is simple in one dimension, but the lecture also points out why students often find CUDA programming mentally difficult: real data are often multidimensional, but the hardware indexing and memory layout frequently require linearization or mixed-dimensional reasoning. Matrices, images, and tensors live naturally in two or more dimensions, while pointer arithmetic and low-level storage often want one-dimensional offsets. The resulting mental conversion is error-prone and tiring.
+      </p>
+
+      <p>
+        This is a very valuable observation for systems education. It explains why higher-level compilers and tensor languages remain so important even when CUDA itself is available. They are not merely conveniences. They relieve a very real cognitive burden associated with mapping high-dimensional computation onto low-level execution structures.
+      </p>
+
+      <h2>3.21 Practical consequences for choosing grid and block sizes</h2>
+
+      <p>
+        The lecture slides close with a very practical topic: how should one choose grid and block sizes in CUDA? Even though the lecture promises to return to CUDA programming in greater detail later, it is useful to record the architectural logic already here. Because a warp contains thirty-two threads, blocks are usually chosen as multiples of thirty-two so that hardware lanes are fully utilized. In practice, block sizes such as 128 or 256 threads are common because they balance several goals at once. They are large enough to expose useful parallelism within a block, but not so large that they always exhaust shared memory or registers per SM.
+      </p>
+
+      <p>
+        Students should resist the temptation to treat these numbers as magical constants. They are architectural compromises. A good block size must respect the warp size, must leave room for multiple blocks or multiple warps to reside on the same SM when beneficial, and must not overconsume shared memory or registers. A program that uses too much shared memory per block may reduce how many blocks can live on an SM at once. A program with excessive register pressure may reduce occupancy. A poor block shape may also misalign with the natural layout of the data, which can hurt coalescing and locality.
+      </p>
+
+      <p>
+        This is why matrix workloads often use two-dimensional block shapes such as 16 × 16. Such shapes are not chosen because they are aesthetically pleasing. They are chosen because they map naturally onto the geometry of matrix tiles, shared-memory staging, and warp-friendly execution. Similarly, the grid must be large enough to cover the full data set and typically much larger than the number of SMs, so that the scheduler always has additional work available and load imbalance can be hidden. These are not separate “CUDA tricks.” They are direct consequences of the memory hierarchy and execution hierarchy we have already studied.
+      </p>
+
+      <h2>3.22 SIMT, warps, and divergence</h2>
+
+      <p>
+        The lecture then turns to one of the defining execution concepts of NVIDIA GPUs: SIMT, or single instruction, multiple threads. SIMT is related to SIMD but not identical to it. In SIMD, the programmer usually reasons explicitly about vector lanes. In SIMT, the programmer is allowed to think in terms of many scalar threads, but the hardware still executes those threads in groups that share an instruction stream.
+      </p>
+
+      <p>
+        That group is called a warp, and in NVIDIA GPUs a warp typically contains thirty-two threads. The hardware schedules and executes warps as the basic lockstep unit. This makes the programming model friendlier than raw SIMD because each thread still has its own thread identifier and can have its own control flow. However, the hardware consequences of divergence do not disappear. If threads within a warp take different branches, then the warp cannot truly execute all paths simultaneously. The machine must serialize divergent paths, reducing efficiency.
+      </p>
+
+      <p>
+        This is why divergence is best understood not as a correctness problem but as a throughput problem. A divergent program can still produce the right answer, but the hardware will not be utilized as effectively. The lecture also briefly mentions dynamic warp formation as a hardware technique for mitigating divergence by regrouping threads with common program counters. Whether or not students remember that term, they should remember the underlying principle: the machine prefers coherent execution, and control irregularity reduces throughput.
+      </p>
+
+      <h2>3.23 Why machine learning fits GPUs so well</h2>
+
+      <p>
+        The lecture’s final synthesis returns to machine learning explicitly. Everything we care to optimize in modern machine learning, especially in large-model training and inference, is dominated by operations that have two remarkable properties. First, they expose abundant data parallelism. Second, they exhibit high arithmetic intensity, especially for large matrix and tensor operations. Those two properties are exactly what the GPU has been evolving to exploit for decades.
+      </p>
+
+      <p>
+        This observation also explains why some earlier neural architectures were less GPU-friendly. Recurrent networks such as vanilla RNNs or LSTMs involve stronger sequential dependencies. Transformers, by contrast, expose much more parallelism in their core operations, even though they introduce their own system bottlenecks such as memory movement and attention-related dataflow challenges. The lecture uses this contrast to make a larger point: algorithmic forms that align with parallel hardware become far more scalable in practice.
+      </p>
+
+      <p>
+        Machine learning therefore did not merely happen to land on GPUs by chance. It landed there because the structural properties of its dominant computations matched the structural strengths that GPUs had been accumulating since their graphics origins. Graphics itself, after all, was already rich in matrix operations, filtering, interpolation, and massively parallel fragment processing. In retrospect, the transition from graphics acceleration to AI acceleration looks natural. But it only looks natural after one understands the chain of abstractions and redesigns that made the transition possible.
+      </p>
+
+      <h2>3.24 A deeper systems lesson: when hardware matures, pressure shifts upward</h2>
+
+      <p>
+        One of the most interesting reflections in the lecture comes near the end, when the discussion turns from hardware evolution to future research. The lecture suggests that over the past two decades, enormous amounts of optimization have already been extracted from the hardware, architecture, and software-system layers of the GPU stack. Once a platform reaches that level of maturity, further gains become harder to obtain through the same style of engineering alone. The remaining opportunities increasingly require algorithmic innovation that is aware of system constraints.
+      </p>
+
+      <p>
+        This is an excellent lesson for undergraduates because it teaches them how systems frontiers move. Early in a technology’s life, basic platform construction is the main challenge. Later, co-design dominates. Later still, algorithmic structure and compiler intelligence may become the key levers. The lecture points to this shift explicitly when discussing low-bit training, future model architecture changes, and the likely increasing role of automation in tuning and compiler optimization.
+      </p>
+
+      <p>
+        In other words, the story of GPU architecture does not end with tensor cores or TMA. It continues into questions such as the following. What kinds of models are numerically stable at lower precision? What kinds of attention or state-space mechanisms make better use of memory hierarchies? What can compilers automate in tensor scheduling, tiling, and fusion? What parts of the optimization space should be searched by humans, and what parts should be searched by learned systems? These are no longer purely hardware questions, yet they cannot be answered without understanding hardware.
+      </p>
+
+      <h2>3.25 Closing synthesis</h2>
+
+      <p>
+        We can now summarize the chapter’s central intellectual arc in one continuous line. The GPU began as a fixed-function graphics accelerator. It became programmable in selected graphics stages as transistor budgets increased. Those programmable stages revealed surprisingly large floating-point throughput. Researchers then realized that if non-graphics data could be represented using graphics data structures and if non-graphics computation could be expressed using graphics passes, the GPU could accelerate far more than rendering. That insight launched early GPGPU, but the programming model was unnatural because programmers had to think in graphics terms.
+      </p>
+
+      <p>
+        Brook provided the right early abstraction by reframing the GPU as a stream processor with kernels rather than as a machine of textures, triangles, and framebuffers. CUDA then industrialized and generalized this shift, while NVIDIA simultaneously redesigned the hardware so that the GPU no longer had to pretend to be a general-purpose computer through graphics tricks. Unified shader architectures, streaming multiprocessors, richer instructions, general memory access, and shared memory turned the GPU into a true parallel computing platform. Later, as deep learning came to dominate, tensor cores, lower-precision formats, and advanced data movement mechanisms such as TMA pushed the machine toward even tighter alignment with matrix- and tensor-heavy workloads.
+      </p>
+
+      <p>
+        The reason all of this matters for machine learning systems is now clear. Modern AI workloads are exactly the sort of workloads that reward high-throughput architectures built around parallelism and arithmetic intensity. But exploiting that fit requires understanding the full stack: workload structure, memory hierarchy, execution model, host-device interaction, compiler behavior, and hardware specialization. That is why GPU architecture is not just one chapter in a machine learning systems course. It is one of the central organizing chapters. It explains why the rest of the stack looks the way it does.
+      </p>
+
+      <p>
+        The next natural step after this chapter is therefore not more hardware facts for their own sake. The next natural step is learning how to program the machine. Once students understand why the GPU is organized the way it is, concepts such as kernels, memory hierarchy, grids, blocks, threads, warps, divergence, and compiler optimization stop feeling like isolated rules. They become what they really are: the software-visible shadow of a processor designed around throughput, locality, and parallel structure.
+      </p>
+
+      <div class="closing">
+        <p class="small">
+          End of Chapter 3.
+        </p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
