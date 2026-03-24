@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book Chapter — CUDA Programming Through the Lens of GPU Architecture</title>
+<style>
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.72;
+    color: #1f1f1f;
+    background: #fafafa;
+    margin: 0;
+    padding: 0;
+  }
+  .page {
+    max-width: 980px;
+    margin: 0 auto;
+    background: white;
+    padding: 56px 72px 72px 72px;
+    box-shadow: 0 2px 18px rgba(0,0,0,0.06);
+  }
+  h1, h2, h3 {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: #111;
+    line-height: 1.25;
+    margin-top: 1.5em;
+    margin-bottom: 0.6em;
+  }
+  h1 {
+    font-size: 2.4rem;
+    margin-top: 0;
+  }
+  h2 {
+    font-size: 1.55rem;
+    border-bottom: 1px solid #e6e6e6;
+    padding-bottom: 0.25em;
+  }
+  p {
+    margin: 0.95em 0;
+    font-size: 1.03rem;
+  }
+  .chapter-meta {
+    color: #555;
+    font-size: 0.98rem;
+    margin-bottom: 2em;
+  }
+  .lead {
+    font-size: 1.12rem;
+    color: #222;
+  }
+  .equation {
+    margin: 1.2em 0;
+    padding: 0.9em 1.1em;
+    background: #f7f7fb;
+    border-left: 4px solid #5b6cf0;
+    font-family: "Courier New", monospace;
+    white-space: pre-wrap;
+  }
+  pre {
+    background: #111827;
+    color: #e5e7eb;
+    padding: 18px 20px;
+    overflow-x: auto;
+    border-radius: 8px;
+    line-height: 1.5;
+    font-size: 0.95rem;
+  }
+  .closing {
+    margin-top: 2.2em;
+    padding-top: 1.2em;
+    border-top: 2px solid #ececec;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Chapter 4. CUDA Programming Begins with Architecture</h1>
+  <div class="chapter-meta">Machine Learning Systems — Detailed narrative chapter developed from Lecture 4 and Lecture 4.5 on CUDA, GPU architecture, PTX/SASS, and occupancy.</div>
+
+  <p class="lead">A beginner often thinks CUDA programming begins with syntax: write a kernel, launch it with a grid and a block, and let the GPU run. That is the wrong place to begin. Real CUDA programming begins much earlier, at the level of architecture. One must first understand what kind of machine a GPU is, why its memory hierarchy is fundamentally different from that of a CPU, why its execution model is built around warps rather than individual threads, why registers become a first-class optimization target, and why writing a high-performance kernel is not a matter of “parallelizing code” but a matter of balancing computation, storage, and scheduling inside a resource-constrained hierarchical system.</p>
+
+  <p>This chapter follows exactly that path. It does not rush into code. Instead, it reconstructs the logic behind CUDA programming from first principles. The storyline is simple, but the implications are deep. A GPU is valuable only for a particular class of workloads. Once such a workload is identified, the next question is not how to write code, but how data moves between the CPU and GPU, how work is mapped from data space to thread space, how the underlying architecture stores and schedules those threads, and how the memory hierarchy determines performance. Only after those foundations are in place does it make sense to read PTX, inspect SASS, reason about register allocation, analyze occupancy, or understand why modern systems such as DeepSeek and Blackwell derive performance gains from cache policy, tensor memory, and bottleneck removal rather than from simply adding more arithmetic units.</p>
+
+  <p>Seen from this perspective, CUDA programming is not a small programming trick. It is an entry point into software–hardware co-design. The programmer writes code, but the real problem is architectural mapping. The compiler lowers abstractions into machine behavior, the hardware schedules warps under latency pressure, the memory hierarchy amplifies or destroys locality, and performance emerges only if all these layers work in concert. The chapter therefore aims to provide not merely familiarity with terminology, but a structured mental model that can later support kernel writing, kernel tuning, and eventually the appreciation of why machine learning compilers have become indispensable.</p>
+
+  <h2>1. Why GPUs Matter Only for the Right Kind of Workload</h2>
+
+  <p>The first question in any serious CUDA discussion is not how to write a kernel, but what kind of workload even deserves a GPU. This question matters because a GPU is not a universal accelerator. It is not enough that a program contains computation; the computation must have the right structure. Two properties are essential. First, the workload must expose high parallelism. Second, it must exhibit high arithmetic intensity. Both conditions are necessary, and neither alone is sufficient.</p>
+
+  <p>High parallelism means the computation can be decomposed into many similar operations that can proceed independently. Convolution offers a good mental example. When computing the output feature map, each output element is determined by a local neighborhood of input values. There are dependencies in the dataflow, but many of those dependencies are benign from a parallel execution perspective. If two outputs merely read overlapping regions of the same input tensor, the relationship is read-after-read rather than a true data hazard. In that case, many output elements can be evaluated concurrently. In other words, the computation contains a large data-parallel frontier.</p>
+
+  <p>Yet parallelism alone does not justify GPU execution. A second condition is required: arithmetic intensity. A workload must perform enough arithmetic per byte of data movement that the cost of accessing memory and transferring data is amortized. If the arithmetic is trivial and the data movement dominates, then the GPU’s computational resources remain underutilized while the system pays the overhead of launching kernels and moving data through the memory hierarchy. This is why the lecture repeatedly emphasizes that the preferred GPU workload combines many parallel data items with a homogeneous computation pattern and enough math to justify the machine.</p>
+
+  <p>This point is not philosophical; it is governed by a hard upper bound. If a program can be split into a sequential part and a parallel part, then the best-case speedup is bounded by the sequential fraction. Even before discussing GPU overhead, one already encounters the logic of Amdahl’s law. Once host-side setup, device allocation, and data transfer are added, the effective upper bound becomes even tighter. A GPU is therefore attractive only when the parallel portion is both dominant and arithmetically heavy enough to overcome the fixed and variable costs of acceleration.</p>
+
+  <h2>2. The GPU Is an Accelerator, Not a Standalone World</h2>
+
+  <p>One of the most common beginner mistakes is to think of the GPU as if it were simply a faster processor. In reality, the GPU sits inside a larger host–device system. The CPU remains responsible for orchestration. It prepares data, allocates device memory, copies inputs to the GPU, launches kernels, and copies outputs back. The GPU then performs the device-side computation. This host–device relationship is the operational starting point for CUDA programming.</p>
+
+  <p>The canonical six-stage CUDA workflow makes this explicit. A programmer defines a CUDA kernel, allocates memory on the GPU, copies data from CPU memory to GPU memory, launches the kernel, copies results back from GPU memory to CPU memory, and finally frees device resources. Conceptually, the kernel is only one stage in a much longer execution pipeline. This is why the lecture insists on viewing the full path rather than focusing only on the kernel body. Kernel optimization matters, but it is nested inside a broader data movement process.</p>
+
+  <p>The vector-addition example makes the point painfully clear. The mathematical work is almost trivial: for each index <code>i</code>, compute <code>C[i] = A[i] + B[i]</code>. But in its CUDA version, a great deal of auxiliary work appears. Memory must be allocated on the GPU, vectors must be copied to device memory, the kernel must be launched, the result must be copied back, and all resources must be released. The lecture’s measurements show that for realistic input sizes, the time spent in kernel execution is tiny compared with the total runtime. The GPU can compute extremely quickly, but the system still pays for setup and data motion.</p>
+
+  <div class="equation">T_total = T_host + T_alloc + T_H2D + T_kernel + T_D2H</div>
+
+  <p>This decomposition is more than a formula; it is the first systems lesson of CUDA programming. The bottleneck often lies not in arithmetic but in movement. The measured scaling from a 256 MB case to a 4096 MB case is nearly linear in host initialization, host-to-device transfer, device-to-host transfer, and kernel time, confirming that the dominant cost follows data volume. In a tiny arithmetic kernel such as vector add, the actual compute work may occupy only a few milliseconds inside a total runtime of seconds. This is why a workload with poor arithmetic intensity does not “want” a GPU, no matter how parallel it appears.</p>
+
+  <p>This reasoning also explains why unified memory and tighter CPU–GPU integration keep reappearing in modern hardware. The lecture mentions Grace–Blackwell as an example of reducing the penalty of host–device separation by allowing CPU and GPU to share a memory space more directly rather than relying entirely on a discrete PCIe-like interface. Such integration does not eliminate all costs, but it attacks the fundamental problem: data motion between worlds is expensive, and modern systems increasingly evolve by shrinking or restructuring that boundary.</p>
+
+  <h2>3. The Kernel as a Mapping from Threads to Data</h2>
+
+  <p>Once the system-level overhead is acknowledged, the next conceptual step is the kernel itself. A CUDA kernel is not merely a function that runs on the GPU. It is the program that each GPU thread executes. This single statement already contains the essence of CUDA’s execution model. The programmer writes one body of code, but the hardware will instantiate that body across many threads. CUDA is therefore not a loop-based programming model in the traditional sense. It is an SPMD model: single program, multiple data.</p>
+
+  <p>The natural question then becomes: if all threads execute the same kernel, how does each thread know which data element it is responsible for? The answer is indexing. Every thread has an identity. Every data element, or more generally every logical work item, also has an identity. CUDA performance begins with the mapping between the two. In the simplest one-dimensional case, the mapping is expressed as</p>
+
+  <div class="equation">index = threadIdx.x + blockIdx.x * blockDim.x</div>
+
+  <p>This formula is far more important than it looks. It is the bridge from abstract data-parallel computation to concrete hardware execution. In a normal serial loop, a programmer would write an explicit iteration variable and march through an array one element at a time. In a CUDA kernel, the loop over elements is implicit. The launch creates many threads, and the indexing formula tells each thread which logical element it owns. What appears as one line of arithmetic is in fact the mechanism that distributes a large iteration space across the GPU.</p>
+
+  <p>In two-dimensional and three-dimensional problems, the same idea extends naturally. Thread and block identities become vectors. The programmer can align thread topology with data topology. This is especially useful when the data itself has spatial structure, such as images, volumes, or multidimensional tensors. What matters is that the mapping is explicit and programmable. CUDA never guesses what the programmer means. Performance depends on making that mapping match both the data layout and the hardware’s preferred execution pattern.</p>
+
+  <h2>4. Why There Is a Grid–Block–Thread Hierarchy at All</h2>
+
+  <p>At first glance, CUDA’s grid–block–thread hierarchy seems like unnecessary complication. If the goal is simply to assign thread IDs to data IDs, why not flatten the entire thread space into one giant one-dimensional array of workers? The answer lies in the memory hierarchy. The computation hierarchy exists because the storage hierarchy exists. This is one of the deepest architectural ideas in the lecture.</p>
+
+  <p>The GPU contains multiple levels of memory and storage with dramatically different sizes, sharing scopes, and access latencies. A thread has access to private registers. A block of threads shares on-chip shared memory and the L1 cache associated with an SM. The entire grid communicates through global memory. This is not an arbitrary software abstraction layered on top of hardware. The software hierarchy mirrors the physical hierarchy. A block is the unit of cooperative computation because a block is the unit that lives on one SM and can therefore share its nearby storage efficiently. A grid is the unit of whole-device execution because blocks distributed across SMs can communicate only through the lower, more global layers of memory.</p>
+
+  <p>This also explains why tiling is unavoidable. Real tensors are too large to fit into the fastest memories. One therefore partitions large problems into tiles so that the active working set for a piece of computation can fit into registers and shared memory. The grid–block–thread hierarchy gives the programmer a language for expressing exactly that nested structure. The data is large and global, the tiles are medium and block-shared, and the thread-local fragments are private and tiny. Once this is understood, the hierarchy stops looking like software ceremony and starts looking like the natural computational image of the memory system.</p>
+
+  <h2>5. Memory Hierarchy as the Real Source of Performance</h2>
+
+  <p>The lecture spends substantial time on memory hierarchy because in GPU computing, performance is fundamentally a memory problem. Arithmetic units are fast; storage is slow. The programmer’s task is therefore to structure data movement so that the fast units do not stall waiting for the slow ones. Every other concept in the chapter—tiling, occupancy, warp scheduling, register pressure, cache policy—ultimately derives from this fact.</p>
+
+  <p>At the top of the hierarchy sit registers. Registers are private to a thread and have extremely low latency, roughly one cycle. They are the place where immediate values, addresses, temporary scalars, and accumulated partial results live. Next comes shared memory, which is on-chip, software-managed, and shared by threads in the same block. Its latency is far higher than registers but still much lower than global memory. Below shared memory lies L2 cache, which is larger and shared across the device. Finally, global memory, implemented by technologies such as HBM, GDDR, or LPDDR depending on the platform, provides massive capacity but very high latency, often hundreds of cycles.</p>
+
+  <p>These levels differ not only in speed but also in scope. Registers are per thread. Shared memory is per block. L2 and global memory are device-wide. This scope difference matters because communication and reuse are meaningful only at the appropriate level. Thread-private data belongs in registers. Cross-thread cooperative reuse inside one block belongs in shared memory. Device-wide persistence belongs in global memory. Efficient CUDA programming is therefore an exercise in assigning the right data to the right level, based on both reuse and visibility.</p>
+
+  <p>The H100 example helps ground this hierarchy in real hardware. Each SM contains the execution pipelines, a large register file, a configurable region that can act as both shared memory and L1 cache, and supporting units such as the Tensor Memory Accelerator. Below the SMs lies a large device-wide L2 cache, and below that the global HBM memory. The exact sizes vary by generation, but the architectural pattern remains stable. The hierarchy is not cosmetic. It determines which design choices are feasible and which are doomed before the kernel even runs.</p>
+
+  <h2>6. Tiling Exists Because Fast Memory Is Small</h2>
+
+  <p>One might ask why GPU programming literature is obsessed with tiles. The answer follows immediately from the previous section. Large matrices or tensors cannot be kept in the fastest storage. Therefore one must divide them into smaller pieces that fit. The lecture’s matrix multiplication discussion gives a concrete version of this logic. If one uses BF16 data, then a 128 × 128 tile occupies 128 × 128 × 2 bytes, which is 32 KB. Two such tiles, one from each input matrix, occupy 64 KB. That working set fits comfortably within the shared-memory-scale storage available on an SM, making it plausible to stage data there and reuse it many times during computation.</p>
+
+  <p>If instead the tile size is increased too aggressively, the working set quickly exceeds the available on-chip capacity. At that point the computation cannot preserve locality, and the kernel is forced into frequent communication with lower memory levels. This increases latency and reduces effective throughput. Tiling is therefore not a stylistic preference. It is the mechanism by which the computation is resized to fit the machine’s fast storage. In a deeper sense, tile size is a joint choice about arithmetic intensity, locality, and concurrency. If the tile is too small, computation per byte is too low and the arithmetic units are underfed. If the tile is too large, storage pressure explodes and occupancy collapses. The kernel is optimized only when the tile size matches the memory hierarchy.</p>
+
+  <h2>7. Warp: The True Unit of GPU Execution</h2>
+
+  <p>Although programmers write in terms of threads, the hardware executes in terms of warps. A warp consists of thirty-two threads and is the real unit of scheduling and lockstep execution on NVIDIA GPUs. This is one of the most important conceptual transitions a student must make. The thread is the programming abstraction. The warp is the architectural reality.</p>
+
+  <p>Within a warp, all thirty-two threads execute the same instruction in lockstep. This is the operational meaning of SIMT. The GPU does not generally schedule single threads one by one. Instead, it selects an entire warp to issue. If one warp is stalled waiting for data from global memory, the scheduler can issue instructions from another ready warp. This is how the GPU hides latency. It does not make global memory faster. It simply ensures that some other group of threads can perform useful work while one group waits.</p>
+
+  <p>This makes the warp the basic unit of both opportunity and pain. Opportunity arises because a warp lets the hardware amortize instruction fetch and issue across many threads. Pain arises because threads in a warp are no longer independent in time. The programmer may imagine each thread as acting alone, but the hardware binds them into a collective execution unit. As a result, control flow, memory access patterns, and data exchange must all be reasoned about at the warp level if one wants to understand performance correctly.</p>
+
+  <h2>8. Divergence: When the Warp Stops Behaving Like a Team</h2>
+
+  <p>The most famous consequence of warp execution is divergence. Suppose a warp contains thirty-two threads, and a branch condition sends the first four down one path while the remaining twenty-eight take another. Because the warp executes in lockstep, the hardware cannot truly execute both paths simultaneously. Instead, it serializes them: first one subset executes while the others sit idle, then the other subset executes while the first becomes inactive. The total work is still done, but the effective parallel efficiency drops.</p>
+
+  <p>This is why branching inside a warp is a performance issue. The issue is not that branches are illegal; they are perfectly legal. The issue is that branches fracture the collective execution model on which the GPU depends for efficiency. Put differently, divergence makes the GPU behave more like a machine forced to emulate independent thread control on top of a lockstep execution substrate. Some modern hardware techniques, such as dynamic warp formation, can mitigate this effect by regrouping threads that share the same program counter, but the basic architectural truth remains: a warp works best when all its threads follow the same path.</p>
+
+  <p>Divergence also reveals a broader principle. GPU programming likes streaming computation. It prefers homogeneous, regular control flow. Whenever code becomes deeply branchy and data-dependent, the GPU begins to resemble a CPU in the least flattering way: not by gaining CPU flexibility, but by paying CPU-like control costs inside a machine optimized for throughput. This is why many high-performance kernels try to replace control complexity with dataflow regularity whenever possible.</p>
+
+  <h2>9. PTX and SASS: Compiler Intent and Hardware Reality</h2>
+
+  <p>Understanding CUDA at a deeper level requires looking below the CUDA C++ source and examining the intermediate and final machine representations. The lecture therefore introduces the NVIDIA compilation toolchain. The <code>nvcc</code> driver separates host code from device code, sends host code through a conventional CPU compiler, sends device code through the CUDA front-end and PTX generation path, lowers PTX through <code>ptxas</code> into architecture-specific SASS, and links the results into one executable. This pipeline is not merely an implementation detail. It explains why CUDA is at once expressive, portable, and deeply tied to hardware.</p>
+
+  <p>PTX is NVIDIA’s virtual GPU ISA. It is typed, human-readable, and portable across device generations. In spirit, it behaves somewhat like a Java bytecode for the GPU world: abstract enough to remain stable, concrete enough to express threads, memory spaces, arithmetic, predicates, and synchronization. SASS is the machine ISA actually executed by the streaming multiprocessors. If PTX captures compiler intent, SASS exposes hardware reality. PTX says what the compiler wants the hardware to do. SASS says what the hardware will actually execute, with real registers, fused operations, cache modifiers, and architecture-specific behavior.</p>
+
+  <p>This distinction matters for performance work. PTX is invaluable for understanding structure, but SASS is where one sees the real instruction mix, the real register usage, the real memory operations, and the actual scheduling implications. Modern expert optimization often requires reading both. PTX reveals the conceptual lowering. SASS reveals whether the conceptual lowering survived contact with the real machine.</p>
+
+  <h2>10. Reading PTX Through the Vector-Add Example</h2>
+
+  <p>The lecture’s vector-add kernel is intentionally simple, precisely because simplicity makes the lowering easy to follow. The PTX version begins by declaring virtual registers, loading the kernel parameters, reading special registers that contain block and thread IDs, computing the global thread index, checking the bounds condition, converting generic pointers to global-memory pointers, loading the two input values, adding them, and storing the result. Nothing in the logic is surprising. What is revealing is how explicitly the machine model appears.</p>
+
+  <p>Even a tiny kernel exposes several GPU-specific ideas. Parameters are loaded from a parameter space. Special registers provide thread and block identifiers. The memory space is explicit: a pointer must be treated as a global-memory address, not merely as a generic pointer. Predicates are used for control flow. The compiler computes the thread-to-data mapping explicitly rather than hiding it behind a loop. In other words, PTX makes visible the structure of GPU execution that high-level CUDA code only suggests.</p>
+
+  <p>PTX also reminds us that it is a virtual ISA. Register names in PTX are not yet the final physical registers of the hardware. The compiler is still free to lower and transform them. This is why PTX is the right place to understand program structure, but not the final place to count resource usage with complete confidence. For that, one must eventually inspect SASS or compiler reports.</p>
+
+  <h2>11. Reading SASS: The Same Kernel, Now as Hardware</h2>
+
+  <p>When the same vector-add kernel is viewed in SASS, the code becomes more concrete and more difficult to read. Special register moves such as <code>S2R</code> and <code>S2UR</code> bring thread and block identifiers into the register file. Integer fused multiply-add instructions compute the global index. Constant-memory loads retrieve kernel parameters. Predicate-setting instructions implement the bounds check. Global memory loads and stores move actual data. The abstraction has narrowed. One now sees the machine-specific view.</p>
+
+  <p>The payoff of SASS inspection is that real registers are visible. If the code uses registers up through something like <code>R9</code> and a small number of predicates and uniform registers, that gives a direct clue to the real register footprint of the kernel. The lecture emphasizes this by comparing PTX and SASS register declarations and by showing how the <code>ptxas -v</code> output reports the actual register count. This is not idle curiosity. Register count determines occupancy, and occupancy in turn governs how much latency the machine can hide. To read SASS is therefore to read performance constraints.</p>
+
+  <h2>12. CPU Threads and GPU Threads Are Not the Same Thing</h2>
+
+  <p>Another major conceptual shift in the lecture is the distinction between CPU threads and GPU threads. The word “thread” is dangerously overloaded. In operating systems, a thread is a relatively heavy software-managed execution context. It has a saved register set, a program counter, a stack, metadata such as priority and scheduling state, and it is managed by the operating system. Context switching among CPU threads is expensive because their state must be saved to and restored from memory.</p>
+
+  <p>A GPU thread is something else entirely. It is a lightweight hardware execution context. It still has state, but the management philosophy is different. The GPU relies on keeping large numbers of such thread contexts resident on-chip so that switching among ready warps can happen with extremely low overhead. The critical thread-local state is therefore kept in the SM’s register file rather than being pushed out to memory during every scheduling decision. This is what makes the GPU’s latency-hiding model viable. If every warp switch had to pay a full CPU-style context-switch cost, the throughput machine would collapse under its own scheduling overhead.</p>
+
+  <p>This difference can be summarized in a single sentence: CPU threads are software threads that happen to execute on hardware, whereas GPU threads are hardware execution contexts exposed to software. That statement may sound abstract, but it explains why the GPU thread model is so lightweight, why it scales to such enormous parallelism, and why the register file becomes such a central bottleneck.</p>
+
+  <h2>13. Registers: The Most Precious Resource on the GPU</h2>
+
+  <p>Registers are the fastest storage in the GPU, but that statement hides a more important truth: they are also the most precious. Every active thread needs registers to hold its local state, intermediate values, addresses, and control-related data. Because a GPU runs enormous numbers of threads concurrently, the total register file must be large. But “large” is relative. The file is large compared with a CPU, yet still finite compared with the total demand of thousands of live threads.</p>
+
+  <p>This is why the lecture examines not just what kinds of registers exist but how many registers a kernel uses per thread. General-purpose registers store integers, addresses, and floating-point values. Predicate registers store boolean conditions for predicated execution. Uniform registers hold values shared across a warp, such as kernel parameters or descriptors, reducing unnecessary replication. Special registers expose read-only hardware-generated values such as thread ID, block ID, or lane ID. Tensor operations may also use implicit internal fragments. Together these forms of state define the living footprint of the thread.</p>
+
+  <p>The number of registers a thread uses is determined at compile time based on kernel complexity. More live variables, more aggressive loop unrolling, and more instruction-level parallelism typically increase register demand. The compiler tries to balance performance and resource usage, but it cannot escape the underlying trade-off. A kernel that asks for too many registers per thread reduces the number of threads that can be resident simultaneously on an SM. The problem is not merely storage; it is lost concurrency.</p>
+
+  <h2>14. Compile-Time Register Allocation and Why GPUs Reject CPU-Style Renaming</h2>
+
+  <p>The lecture makes an important comparison between GPU and CPU register management. On the GPU, register allocation is fundamentally a compile-time decision. The instructions emitted for the kernel explicitly reference physical or near-physical register assignments. The hardware expects those assignments to remain stable during execution. Dynamic register allocation at runtime would complicate the machine and undermine the predictability required for warp-level lockstep execution.</p>
+
+  <p>CPUs, by contrast, frequently combine compile-time register allocation with runtime register renaming. In an out-of-order CPU, the hardware dynamically remaps architectural registers to physical registers in order to remove false dependencies and uncover more instruction-level parallelism. GPUs do not pursue this path in the same way because their strategy for hiding latency is not aggressive instruction reordering within a small number of threads. Their strategy is to keep many threads available and switch among them. Runtime register renaming at GPU scale would increase hardware complexity and runtime uncertainty in a machine built for massive parallel throughput. The GPU therefore chooses static register allocation and thread-level latency hiding instead of CPU-style dynamic register manipulation.</p>
+
+  <h2>15. Spilling: When Registers Run Out and Performance Falls Off a Cliff</h2>
+
+  <p>If a kernel demands more live storage than the available registers can provide, the compiler must spill. Spilling means moving some values out of registers and into local memory. The term “local memory” can be misleading for beginners because it sounds like a small on-chip space private to the thread. In reality, local memory is a software-visible concept that is typically backed by global memory. What appears local in scope may be painfully global in latency.</p>
+
+  <p>This is why register spilling is so dangerous. A value that could have been accessed with register latency now becomes a load or store that may cost hundreds of cycles. Caches can sometimes soften the blow if the spilled data has enough temporal locality to remain in L1 or L2, but this is not guaranteed. The lecture is right to present spilling as a silent killer. It often appears only after compilation, and the programmer may not realize why a kernel’s performance has collapsed until the register report or SASS inspection reveals the spill behavior.</p>
+
+  <p>For this reason, practical CUDA programming always includes attention to compiler diagnostics. One does not merely write a kernel and hope. One compiles, inspects the register count, checks whether spilling occurred, and reasons about whether the chosen code structure is compatible with the intended occupancy.</p>
+
+  <h2>16. Shared Memory: The GPU’s Explicit Weapon Against Redundant Data Movement</h2>
+
+  <p>Registers are private. But many kernels need threads to share data. Matrix multiplication is the classic example. Multiple threads in a block may require overlapping regions of the same input matrices. If each thread independently fetched those values from global memory into private registers, the system would destroy its own arithmetic intensity by repeatedly paying for the same data. Shared memory exists precisely to prevent that disaster.</p>
+
+  <p>Shared memory is a programmer-controlled on-chip SRAM that allows threads in the same block to cooperatively load data once and reuse it many times. If one thread block stages an input tile into shared memory, then many threads can access that tile while performing their respective parts of the computation. This reduces global-memory traffic and dramatically increases effective arithmetic intensity. In workloads such as matrix multiplication and attention, the entire performance story depends on this cooperative reuse.</p>
+
+  <p>The lecture makes an important philosophical point here. Shared memory is software-managed because the access patterns of many machine learning workloads are predictable enough that the programmer or compiler can do better than a generic cache heuristic. When reuse is structured and known, explicit management beats best-effort guessing. This is one of the defining features of GPU programming.</p>
+
+  <h2>17. Cache and Shared Memory: Two Different Optimization Philosophies</h2>
+
+  <p>CPU programmers are accustomed to relying heavily on caches. Caches are hardware-managed. They exploit temporal and spatial locality by guessing what data is likely to be used soon. This works well for general-purpose workloads whose runtime behavior is difficult to predict at compile time. The CPU therefore invests heavily in large hardware-managed private caches.</p>
+
+  <p>GPUs adopt a hybrid approach. They still provide caches, but they also expose shared memory as a first-class software-managed storage layer. The key difference is control. Shared memory gives guaranteed reuse when used correctly, because the programmer explicitly stages data there. Caches provide opportunistic reuse when the hardware happens to detect a favorable access pattern. The lecture summarizes this well: the GPU combines explicit software-managed memory with implicit hardware-managed caching. The implication is profound. Efficient GPU programming is not about deciding whether one should “use the cache” in the abstract. It is about knowing which data deserves explicit control and which data is better left to the hardware’s best-effort machinery.</p>
+
+  <h2>18. Why Big GPU Caches Still Behave Small Under Concurrency</h2>
+
+  <p>Modern GPUs can have impressively large L2 caches, sometimes on the order of tens or even hundreds of megabytes. This tempts the unwary student into thinking the cache should solve most problems. The lecture carefully corrects that misconception. Total cache capacity is not the same as effective cache capacity per active computation. A GPU runs many SMs and many warps concurrently. All of them compete for the same lower-level cache. As a result, the effective portion of L2 available to any one kernel, block, or warp can be surprisingly small.</p>
+
+  <p>This is why the working set that benefits from L2 must be not merely smaller than the raw L2 size, but small enough and reused quickly enough to avoid eviction under concurrent pressure. Large or streaming working sets quickly lose locality and fall back to global memory. This observation is especially important for large language models, whose tensors can be enormous and whose dynamic behavior can defeat naive cache assumptions. It also explains why clever experts sometimes choose to bypass L1 or manipulate cache policy directly rather than assuming the hardware default is best.</p>
+
+  <h2>19. DeepSeek’s Lesson: PTX-Level Control Exists for a Reason</h2>
+
+  <p>The DeepSeek example is memorable because it shows a concrete case where expert optimization goes below CUDA source and into PTX. The reason was not aesthetic; it was architectural. For bandwidth-critical large-language-model kernels on H100 and H800 GPUs, the default compiler policy did not provide enough control over cache behavior. DeepSeek modified PTX to issue a global load that deliberately bypassed L1 allocation while fetching data through L2. In effect, they refused to waste scarce L1 capacity on streaming data that would not be reused productively.</p>
+
+  <p>This lesson is important because it reveals both the power and the limits of abstraction. CUDA hides many low-level details to make GPU programming tractable. But once a workload becomes so performance-critical that the default choices are no longer acceptable, one may need to recover explicit control. PTX then becomes the place where compiler intent can be refined to better match architectural reality. The gain may be only five to ten percent in a hot kernel, but at cluster scale that gain is enormous. The broader lesson is that memory movement, cache policy, and data streaming behavior are not side issues. They are often the real bottleneck.</p>
+
+  <h2>20. Runtime Decisions: Where the Compiler Stops and the Hardware Begins</h2>
+
+  <p>It would be a mistake to conclude that everything important is fixed at compile time. GPU execution is the result of a partnership between static and dynamic decisions. Register allocation is decided at compile time. Spilling is a consequence of compile-time resource pressure. Instruction scheduling is largely shaped by the compiler. But warp scheduling is a runtime activity. Block assignment to SMs is a runtime activity. Resource allocation across SMs and the actual interleaving of ready work are runtime phenomena.</p>
+
+  <p>This creates a two-level control system. The compiler lays down a plan. The hardware reacts to actual conditions. Performance emerges only if both layers align. A perfectly written kernel can still suffer if the runtime scheduling cannot keep the machine busy. Conversely, a brilliant scheduler cannot rescue a kernel that already destroyed locality or consumed unreasonable resources. The lecture is right to emphasize that neither compile-time planning nor runtime scheduling alone is sufficient. The GPU is a co-designed system in the strongest possible sense.</p>
+
+  <h2>21. Occupancy: The Central Trade-off Between Resources and Concurrency</h2>
+
+  <p>Occupancy is the bridge between the memory hierarchy and the execution hierarchy. It measures, in effect, how many threads or warps can be active on an SM relative to its theoretical capacity. But occupancy is not merely a number one tries to maximize blindly. It is the visible outcome of deeper trade-offs. More registers per thread improve local computation and reduce spilling. More shared memory per block improves data reuse. Yet both consume finite on-chip resources, leaving room for fewer simultaneously resident blocks and fewer backup warps.</p>
+
+  <p>This is why the lecture presents occupancy as a trade-off between per-thread resource usage and concurrency. If occupancy falls too low, the GPU loses its ability to hide memory latency because too few alternate warps are available when one warp stalls on global memory. If occupancy is kept extremely high by starving each thread of registers or each block of shared memory, then the arithmetic units may still be underutilized because the kernel’s dataflow is weak and reuse is poor. High occupancy helps latency-bound kernels. Compute-bound kernels with strong instruction-level parallelism may still perform well at lower occupancy. There is no universal optimum. The optimum is architectural and workload-dependent.</p>
+
+  <h2>22. How These Ideas Shape Kernel Design</h2>
+
+  <p>Once all the previous pieces are assembled, the practical design rules of CUDA programming begin to make sense. Threads per block are commonly chosen as multiples of thirty-two because a warp contains thirty-two threads. Block sizes around 128 to 256 threads often provide a good compromise between occupancy and scheduling flexibility. The grid is typically much larger than the number of SMs so that runtime block scheduling can balance load naturally. Block dimensions should align with data layout so that memory access is regular. Shared-memory usage must be controlled because it limits how many blocks fit on an SM. Register usage must be monitored because it limits how many warps can remain resident. In other words, the familiar practical rules of kernel design are not folklore; they are consequences of the architecture.</p>
+
+  <p>This is also why high-performance kernel optimization is difficult. The design space is discrete, multidimensional, and highly coupled. Block size, tile size, register pressure, shared-memory footprint, unrolling, vectorization, memory layout, and access order all interact. The lecture describes this as a problem with ten to twenty meaningful decision variables, which is exactly the right intuition. The difficulty does not disappear merely because computers perform the search instead of humans. It becomes a compiler problem. This is the point at which machine learning compilers enter naturally into the story. Once students understand how hard the manual optimization problem is, they can appreciate why automated tuning, compiler search, and even reinforcement-learning-based kernel optimization have become so important.</p>
+
+  <h2>23. TMEM in Blackwell: A New Data Path for Tensor Compute</h2>
+
+  <p>Modern GPU evolution reinforces the lecture’s central thesis that the frontier of performance is increasingly shaped by dataflow and storage, not just by arithmetic units. Blackwell introduces TMEM, a dedicated tensor memory on the order of 256 KB per SM, inserting an additional on-chip tensor-oriented storage layer into the path from HBM to Tensor Cores. In Hopper, tensor operands ultimately had to reside in registers before being consumed by Tensor Cores. That design placed enormous pressure on the register file, because registers had to serve both as thread state and as operand staging for tensor computation.</p>
+
+  <p>Blackwell restructures that path. Instead of forcing all large tensor tiles through general-purpose registers, the architecture provides a more direct tensor-oriented storage mechanism. Conceptually the flow becomes HBM to L2 to shared memory or TMA to TMEM and then to Tensor Cores. This change does not make registers irrelevant, but it reduces the burden placed on them. By relieving register pressure, TMEM can raise effective occupancy, improve data reuse, and allow better overlap between movement and compute. The introduction of TMEM is therefore not an isolated feature. It is a direct architectural response to the tension between tile size, register demand, and occupancy that the lecture develops throughout the chapter.</p>
+
+  <h2>24. Why GB300 Jumps So Much Without Adding Many More SMs</h2>
+
+  <p>The GB200-to-GB300 comparison provides a final, concrete lesson in modern architecture evolution. The reported FP4 dense throughput rises from roughly ten petaflops to fifteen petaflops, a fifty percent jump, even though the number of active SMs increases only modestly, from about 148 to 160. The lesson is immediate: performance growth is no longer dominated by the raw count of primary compute engines.</p>
+
+  <p>The lecture identifies the decisive factor correctly. The number of special function units per SM doubles, which accelerates softmax-like operations that had become a bottleneck for transformer workloads. L2 capacity also increases, and HBM capacity expands significantly, allowing the system to keep the Tensor Cores fed more effectively and to reduce off-loading pressure. The message is subtle but powerful. Once tensor arithmetic becomes highly optimized, the bottlenecks migrate. They move into memory hierarchy, special-function throughput, and data movement. Architecture evolves by fixing those bottlenecks rather than by blindly scaling the same arithmetic resources forever.</p>
+
+  <h2>25. The Big Picture: CUDA Programming as Architecture-Constrained Optimization</h2>
+
+  <p>We can now return to the opening question: why begin CUDA programming with architecture instead of code? The answer should be clear. A CUDA kernel is not just a piece of parallel code. It is a mapping of dataflow onto a machine whose performance is governed by a layered memory hierarchy, warp-based execution, static resource allocation, and runtime scheduling. Registers, shared memory, L2, global memory, thread blocks, warps, block scheduling, and occupancy are not disconnected technical trivia. They are parts of one system.</p>
+
+  <p>To optimize a kernel is therefore to solve a constrained mapping problem. One must decide how to partition work into threads and blocks, how to size tiles, how much shared memory and how many registers to spend, how to align memory accesses, how to preserve locality, and how to expose enough concurrency for latency hiding without collapsing under resource pressure. Every one of those choices sits inside a discrete design space. That is why manual optimization is hard. That is why compilers matter. And that is why the GPU, despite being marketed as a massively parallel machine, should really be understood as a latency-hiding machine whose efficiency depends on structured coordination between software and hardware.</p>
+
+  <div class="closing">
+    <p>The central conclusion of the chapter can be stated simply. GPU computing is not about writing many threads for the sake of many threads. It is about orchestrating computation, memory, and scheduling within a constrained and hierarchical architecture. Once that idea is internalized, CUDA programming stops looking like a bag of APIs and starts looking like what it really is: an exercise in architectural optimization.</p>
+  </div>
+</div>
+</body>
+</html>
