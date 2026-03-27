@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#050914" />
+      <stop offset="50%" stop-color="#0a1128" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+
+    <filter id="heavyBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="80" />
+    </filter>
+
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="100%" stop-color="#4FD1C5" />
+    </linearGradient>
+
+    <linearGradient id="fadeLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="rgba(79, 209, 197, 0)" />
+      <stop offset="40%" stop-color="rgba(79, 209, 197, 0.2)" />
+      <stop offset="100%" stop-color="rgba(79, 209, 197, 0.8)" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)" />
+
+  <g filter="url(#heavyBlur)" opacity="0.7">
+    <circle cx="150" cy="200" r="250" fill="#3182CE" />
+    <circle cx="350" cy="700" r="300" fill="#805AD5" />
+    <circle cx="450" cy="400" r="200" fill="#D53F8C" opacity="0.6"/>
+    <ellipse cx="100" cy="500" rx="250" ry="150" fill="#38B2AC" opacity="0.5"/>
+  </g>
+
+  <g stroke="rgba(255,255,255,0.08)" stroke-width="2" fill="none">
+    <path d="M 400 300 C 700 300 900 200 1200 400" />
+    <path d="M 350 500 C 650 600 800 300 1150 500" />
+    <path d="M 450 700 C 800 800 1000 600 1300 700" />
+    <path d="M 500 400 C 750 200 950 800 1250 600" />
+    <path d="M 200 800 C 600 900 900 700 1400 850" />
+    <path d="M 300 100 C 700 50 1000 250 1350 150" />
+  </g>
+
+  <g stroke="rgba(79, 209, 197, 0.1)" stroke-width="1">
+    <line x1="1000" y1="0" x2="1000" y2="900" />
+    <line x1="1100" y1="0" x2="1100" y2="900" />
+    <line x1="1200" y1="0" x2="1200" y2="900" />
+    <line x1="1300" y1="0" x2="1300" y2="900" />
+    <line x1="1400" y1="0" x2="1400" y2="900" />
+    <line x1="1500" y1="0" x2="1500" y2="900" />
+    <line x1="900" y1="100" x2="1600" y2="100" />
+    <line x1="900" y1="200" x2="1600" y2="200" />
+    <line x1="900" y1="300" x2="1600" y2="300" />
+    <line x1="900" y1="400" x2="1600" y2="400" />
+    <line x1="900" y1="500" x2="1600" y2="500" />
+    <line x1="900" y1="600" x2="1600" y2="600" />
+    <line x1="900" y1="700" x2="1600" y2="700" />
+    <line x1="900" y1="800" x2="1600" y2="800" />
+  </g>
+
+  <g stroke="url(#fadeLine)" stroke-width="1.5" fill="none" filter="url(#glow)">
+    <polygon points="1100,200 1300,100 1400,300 1200,400" />
+    <polygon points="1200,400 1400,300 1500,500 1300,600 1100,500" />
+    <polygon points="1100,500 1300,600 1400,800 1200,700" />
+    <line x1="1100" y1="200" x2="1200" y2="400" />
+    <line x1="1400" y1="300" x2="1300" y2="600" />
+    <line x1="1200" y1="400" x2="1100" y2="500" />
+    <line x1="1300" y1="600" x2="1200" y2="700" />
+    <line x1="1500" y1="500" x2="1400" y2="800" />
+  </g>
+
+  <g fill="#050914" stroke="#4FD1C5" stroke-width="2" filter="url(#glow)">
+    <circle cx="1100" cy="200" r="5" />
+    <circle cx="1300" cy="100" r="7" fill="#4FD1C5"/>
+    <circle cx="1400" cy="300" r="5" />
+    <circle cx="1200" cy="400" r="8" />
+    <circle cx="1500" cy="500" r="4" />
+    <circle cx="1300" cy="600" r="6" />
+    <circle cx="1100" cy="500" r="7" fill="#4FD1C5"/>
+    <circle cx="1200" cy="700" r="5" />
+    <circle cx="1400" cy="800" r="6" fill="#4FD1C5"/>
+  </g>
+
+  <g fill="#4FD1C5" opacity="0.5" font-family="'Courier New', Courier, monospace" font-size="14" letter-spacing="1">
+    <text x="1350" y="80">∇_x log p(x)</text>
+    <text x="1230" y="370">L_VLB = E_q[ ||ε - ε_θ(x_t, t)||² ]</text>
+    <text x="1050" y="240">f: X → Y</text>
+    <text x="1420" y="550">x_{t-1} = μ_θ(x_t) + σ_t z</text>
+    <text x="1050" y="780">def articulate(idea):</text>
+    <text x="1050" y="800">    return Model(idea).build()</text>
+  </g>
+
+  <rect x="0" y="350" width="1600" height="200" fill="rgba(5, 9, 20, 0.6)" />
+  <rect x="0" y="350" width="1600" height="2" fill="url(#fadeLine)" opacity="0.5" />
+  <rect x="0" y="550" width="1600" height="2" fill="url(#fadeLine)" opacity="0.5" />
+  
+  <g text-anchor="middle" font-family="'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif">
+    <text x="802" y="442" font-size="84" font-weight="800" fill="#000000" opacity="0.8">ARTICULATION</text>
+    <text x="800" y="440" font-size="84" font-weight="800" fill="url(#textGrad)" letter-spacing="8">ARTICULATION</text>
+    
+    <text x="801" y="511" font-size="28" font-weight="300" fill="#000000" opacity="0.8" letter-spacing="3">Learning How to Think in the Age of AI</text>
+    <text x="800" y="510" font-size="28" font-weight="300" fill="#A0AEC0" letter-spacing="3">Learning How to Think in the Age of AI</text>
+  </g>
+</svg>
