@@ -86,6 +86,24 @@ If any of these are missing, the problem remains unarticulated.
 
 ---
 
+## What Happens Without Articulation
+
+To understand articulation more deeply, it helps to examine its absence.
+
+Much of what appears to be reasoning in practice is actually pre-articulated thinking. It operates at the level of description rather than structure.
+
+A statement like “this improves performance” sounds meaningful, but it says nothing about *why* performance improves, what variable changed, or how that change propagates through the system. It describes an outcome, not a mechanism.
+
+Similarly, phrases such as “important tokens” or “useful features” give the illusion of specificity while leaving the core concept undefined. Important in what sense? Measured how? Under which objective?
+
+Even “this method works well” carries an implicit claim without an explicit metric. Works well according to which distribution, which task, which threshold?
+
+These are not merely incomplete ideas. They are different kinds of statements. They belong to a stage before articulation.
+
+Without articulation, thinking remains anchored in language rather than structure. It becomes difficult to test, difficult to debug, and ultimately difficult to build upon.
+
+---
+
 ## Articulation Is Not Adding Detail — It Is Changing the Statement
 
 This is where most misunderstandings occur.
@@ -110,9 +128,7 @@ Now we have some structure, but it is still unclear. What does “effective info
 
 The statement is more elaborate, but it is not yet articulated.
 
-The next step is different in nature.
-
-We might say:
+The next step introduces a hypothesis:
 
 “There exists a memory size \( m \ll L \) such that attention outputs can be preserved within error \( \epsilon \) for future queries.”
 
@@ -138,6 +154,22 @@ The final step requires committing to a formulation:
 At this point, every component is defined. The variables are explicit. The objective is measurable. The statement can be tested, validated, or falsified.
 
 This is articulation.
+
+---
+
+## A Minimal Articulation Loop
+
+When faced with a vague idea, articulation does not happen automatically. It requires a deliberate transformation.
+
+The process can be understood as a recurring movement through three stages.
+
+First, words must be grounded into variables. Any concept that plays a role in reasoning must be tied to something that can be represented. “Importance,” “efficiency,” or “structure” must become quantities, not descriptions.
+
+Second, relationships must be turned into mechanisms. Instead of stating that one factor “affects” another, one must specify how that influence propagates. Through which component of the system does the effect arise? What is the causal pathway?
+
+Third, claims must be turned into tests. A statement is only fully articulated when it implies a concrete experiment—something that could, in principle, prove it wrong.
+
+This loop—variables, mechanisms, tests—is not a checklist to be completed once. It is a process that must be applied repeatedly, each time reducing ambiguity and tightening constraints.
 
 ---
 
@@ -205,6 +237,20 @@ That transformation is articulation.
 
 ---
 
+## Separating Observation, Assumption, and Claim
+
+One of the most important consequences of articulation is that it forces a separation between different levels of truth.
+
+In unarticulated thinking, these levels are often mixed together. Observations are treated as explanations, and hypotheses are mistaken for conclusions.
+
+Articulation makes these distinctions explicit.
+
+In the KV cache example, the observation is that memory grows with sequence length. The hypothesis is that the effective information content may be much smaller. The formal claim is that there exists a compressed memory representation that preserves attention outputs within a bounded error.
+
+Each of these plays a different role. Confusing them leads to faulty reasoning. Keeping them separate allows the problem to be examined, tested, and refined.
+
+---
+
 ## Why Articulation Must Be Iterative
 
 Articulation is not a one-shot process.
@@ -243,7 +289,7 @@ It is executing.
 
 At that point, AI does not replace thinking. It amplifies it.
 
-What is often called “prompt engineering” is, at its core, articulation.
+Without articulation, AI amplifies confusion. With articulation, it amplifies reasoning.
 
 ---
 
@@ -267,6 +313,8 @@ Articulation is not a step. It is a discipline.
 
 It is the continuous process of transforming what we observe into what must be true, expressed in variables, mechanisms, and constraints.
 
-In a world where answers are easy to obtain, the ability to ask and refine the right question becomes the defining skill.
+In a world where answers are easy to obtain, the advantage no longer comes from knowing more.
 
-And that ability begins with articulation.
+It comes from being able to turn knowledge into something that can be reasoned about, tested, and built.
+
+And that transformation begins with articulation.
