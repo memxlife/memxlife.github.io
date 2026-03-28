@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 500" width="100%" height="100%">
+  <defs>
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#030712"/>
+    </radialGradient>
+    
+    <linearGradient id="organicLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="40%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+
+    <linearGradient id="organicLine2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="30%" stop-color="#e879f9"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="2000" height="500" fill="url(#bgGlow)"/>
+
+  <g stroke="#1e293b" stroke-width="2">
+    <line x1="0" y1="100" x2="800" y2="100"/>
+    <line x1="0" y1="175" x2="800" y2="175"/>
+    <line x1="0" y1="250" x2="800" y2="250"/>
+    <line x1="0" y1="325" x2="800" y2="325"/>
+    <line x1="0" y1="400" x2="800" y2="400"/>
+    
+    <line x1="100" y1="0" x2="100" y2="500"/>
+    <line x1="250" y1="0" x2="250" y2="500"/>
+    <line x1="400" y1="0" x2="400" y2="500"/>
+    <line x1="550" y1="0" x2="550" y2="500"/>
+    <line x1="700" y1="0" x2="700" y2="500"/>
+  </g>
+
+  <g fill="#38bdf8">
+    <circle cx="250" cy="175" r="5" />
+    <circle cx="400" cy="250" r="5" />
+    <circle cx="550" cy="100" r="5" />
+    <circle cx="700" cy="325" r="5" />
+  </g>
+
+  <g fill="none" stroke-linecap="round" filter="url(#glow)">
+    <path d="M 700 250 C 900 250, 1100 100, 1400 150 S 1700 50, 2000 150" stroke="url(#organicLine)" stroke-width="6" opacity="0.9"/>
+    <path d="M 700 250 C 850 400, 1150 400, 1450 300 S 1800 450, 2000 350" stroke="url(#organicLine2)" stroke-width="4" opacity="0.8"/>
+    <path d="M 550 175 C 800 175, 950 250, 1200 200 S 1600 100, 2000 250" stroke="url(#organicLine)" stroke-width="3" opacity="0.6"/>
+    <path d="M 400 325 C 700 325, 900 200, 1300 350 S 1700 200, 2000 300" stroke="url(#organicLine2)" stroke-width="5" opacity="0.7"/>
+    
+    <path d="M 800 250 C 850 220, 880 180, 900 150" stroke="#f43f5e" stroke-width="3" stroke-dasharray="6 6" opacity="0.8"/>
+    <path d="M 1000 350 C 1050 380, 1100 420, 1150 450" stroke="#f43f5e" stroke-width="3" stroke-dasharray="6 6" opacity="0.8"/>
+  </g>
+
+  <g fill="#f43f5e" filter="url(#glow)">
+    <circle cx="900" cy="150" r="6" />
+    <circle cx="1150" cy="450" r="6" />
+  </g>
+
+  <g fill="#10b981" filter="url(#glow)">
+    <circle cx="1400" cy="150" r="8" fill="#34d399"/>
+    <circle cx="1200" cy="200" r="6" fill="#818cf8"/>
+    <circle cx="1450" cy="300" r="9" fill="#10b981"/>
+    <circle cx="1700" cy="200" r="7" fill="#c084fc"/>
+    <circle cx="1800" cy="390" r="5" fill="#38bdf8"/>
+  </g>
+
+  <g stroke="#ffffff" fill="none" opacity="0.15">
+    <circle cx="1000" cy="250" r="600" stroke-width="1" stroke-dasharray="10 20" />
+    <circle cx="1000" cy="250" r="800" stroke-width="0.5" stroke-dasharray="5 30" />
+  </g>
+
+  <rect x="500" y="160" width="1000" height="180" fill="#030712" opacity="0.75" rx="20" filter="url(#glow)" />
+  <rect x="500" y="160" width="1000" height="180" fill="#030712" opacity="0.5" rx="20" />
+
+  <text x="1000" y="240" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="2">
+    OBSERVE, DON'T TOUCH:
+  </text>
+  <text x="1000" y="300" font-family="system-ui, -apple-system, sans-serif" font-size="24" font-weight="300" fill="#9ca3af" text-anchor="middle" letter-spacing="6">
+    EVOLUTION IS THE NATURE OF AI SYSTEMS
+  </text>
+</svg>
