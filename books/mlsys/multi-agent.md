@@ -36,6 +36,35 @@ If you miss that point, almost every later design choice will seem arbitrary. On
 
 ---
 
+### The working flow is as follows: 
+
+You type a message.
+
+The app first parses your input and turns it into one or more internal user messages. Then it builds the conversation
+context: current messages, system prompt, date/project context, and tool permissions.
+
+Next it sends a request to the model with streaming enabled. As tokens and blocks arrive, the app immediately emits assistant
+output to the UI.
+
+If the model emits tool_use blocks, the app pauses normal assistant completion and runs those tools. Tool outputs are
+converted into tool_result messages and appended to the conversation.
+
+Then it calls the model again with the updated conversation (including tool results), so the model can continue from those
+results. This repeats until there are no more tool calls and no continuation condition is triggered.
+
+During this loop, the app also handles safety/recovery behaviors:
+
+- context compaction when prompt gets too large,
+- retries/fallbacks for streaming or token-limit issues,
+- stop hooks and permission gates,
+- token-budget continuation/stop rules.
+
+When the loop ends, the final assistant response is already in the message history, and the turn is marked complete in UI/
+session storage.
+
+---
+
+
 ## 2. The architecture is layered because action needs structure
 
 Hasan’s reconstruction presents Claude Code as a layered system with four broad zones:
