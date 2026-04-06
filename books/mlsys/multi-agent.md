@@ -34,8 +34,6 @@ The model supplies reasoning. The runtime supplies everything else: tool access,
 
 If you miss that point, almost every later design choice will seem arbitrary. Once you see it, the whole architecture starts to make sense.
 
----
-
 ### The working flow is as follows: 
 
 You type a message.
