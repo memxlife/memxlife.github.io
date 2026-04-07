@@ -2,7 +2,7 @@
 # Chapter 5. CUDA Programming as Hardware-Software Co-Optimization
 ## From Naive Matrix Multiplication to Hierarchical Tiling
 
-This chapter reconstructs the lecture as a coherent book-style narrative by aligning the spoken transcript with the slide flow. The lecture begins with the central thesis that CUDA programming is fundamentally a **mapping problem**: high-dimensional tensor workloads must be mapped onto linear and hierarchical hardware resources. The slides then develop that thesis through one running example, matrix multiplication, and progressively introduce the key optimization ideas: warp-aware thread mapping, global-memory coalescing, shared-memory tiling, register tiling, memory vectorization, warp tiling, and shared-memory bank-conflict management. The overall logic of the chapter therefore follows the same sequence as the lecture itself, but expands the explanation, fills in technical gaps, and makes explicit the systems reasoning that is sometimes only implicit in classroom delivery. fileciteturn3file1 fileciteturn3file2 fileciteturn3file3
+This chapter reconstructs the lecture as a coherent book-style narrative by aligning the spoken transcript with the slide flow. The lecture begins with the central thesis that CUDA programming is fundamentally a **mapping problem**: high-dimensional tensor workloads must be mapped onto linear and hierarchical hardware resources. The slides then develop that thesis through one running example, matrix multiplication, and progressively introduce the key optimization ideas: warp-aware thread mapping, global-memory coalescing, shared-memory tiling, register tiling, memory vectorization, warp tiling, and shared-memory bank-conflict management. The overall logic of the chapter therefore follows the same sequence as the lecture itself, but expands the explanation, fills in technical gaps, and makes explicit the systems reasoning that is sometimes only implicit in classroom delivery.
 
 In the previous lecture, we studied GPU microarchitecture. We examined the computational resources of the machine, including CUDA cores and tensor cores, and we examined the storage and communication hierarchy, from HBM to on-chip caches, shared memory, and registers. That earlier discussion matters because CUDA optimization only becomes intellectually clear when one stops treating it as a syntax problem and starts treating it as a machine-mapping problem. The kernel launch syntax, the `__global__` keyword, the block dimensions, and the thread indices are only surface manifestations. The deeper issue is always the same: how should a high-dimensional workload be laid out and scheduled so that the actual GPU hardware sees data and computation in the form it can execute efficiently?
 
@@ -16,9 +16,9 @@ The example that makes all of this vivid is matrix multiplication. Matrix multip
 
 The lecture begins by stating the problem in an intentionally abstract way. The workload in machine learning is usually a tensor computation. A matrix is a two-dimensional tensor. A batch of matrices is a higher-dimensional tensor. In convolutional and transformer workloads, tensors often carry even richer logical structure. The neighborhood relations of these tensors are naturally multi-dimensional. In a matrix, an element has row-wise and column-wise neighbors. In an image tensor, a pixel has spatial neighbors. In a batched tensor, locality may exist simultaneously across batch, channel, height, and width.
 
-The hardware, however, does not expose that structure directly. Memory is addressed linearly. At the lowest level, DRAM is not “two-dimensional mathematics”; it is an addressable storage medium organized around rows, columns, pages, and bursts. Shared memory is small, explicitly managed SRAM. Registers are private to threads. The GPU scheduler does not execute a two-dimensional grid as an abstract geometric object. It executes one-dimensional warps of 32 lanes in lockstep. This is the first deep conceptual tension in CUDA: the workload is multi-dimensional, but the underlying mechanisms that move and execute it are much closer to one-dimensional, linear, and hierarchical structures. fileciteturn3file1
+The hardware, however, does not expose that structure directly. Memory is addressed linearly. At the lowest level, DRAM is not “two-dimensional mathematics”; it is an addressable storage medium organized around rows, columns, pages, and bursts. Shared memory is small, explicitly managed SRAM. Registers are private to threads. The GPU scheduler does not execute a two-dimensional grid as an abstract geometric object. It executes one-dimensional warps of 32 lanes in lockstep. This is the first deep conceptual tension in CUDA: the workload is multi-dimensional, but the underlying mechanisms that move and execute it are much closer to one-dimensional, linear, and hierarchical structures.
 
-The lecture then identifies three specific mismatches that arise from this fact. The first is **data-layout mismatch**. Multi-dimensional tensors must be placed into linear memory. As soon as we choose a layout such as row-major storage, we preserve locality along one dimension and weaken locality along another. The second is **execution mismatch**. We may write code using two-dimensional or three-dimensional thread coordinates, but the hardware executes one-dimensional warps. That means the mapping from `threadIdx.{x,y,z}` to the problem domain is not superficial; it determines which threads become neighbors inside a warp and therefore which memory addresses are accessed together. The third is **communication placement**. The same arithmetic can have drastically different cost depending on where data movement occurs. Reusing a value already in a register is extremely cheap. Reusing a value in shared memory is also good, though not as cheap. Fetching repeatedly from HBM is far more expensive. The arithmetic is unchanged, but the communication substrate completely changes the observed performance. The opening slide of the deck states exactly this framing: CUDA programming is about mapping high-dimensional workloads onto linear and hierarchical hardware, and performance is shaped by data layout, warp execution, and the placement of communication across HBM, shared memory, and registers. fileciteturn3file1 fileciteturn3file0
+The lecture then identifies three specific mismatches that arise from this fact. The first is **data-layout mismatch**. Multi-dimensional tensors must be placed into linear memory. As soon as we choose a layout such as row-major storage, we preserve locality along one dimension and weaken locality along another. The second is **execution mismatch**. We may write code using two-dimensional or three-dimensional thread coordinates, but the hardware executes one-dimensional warps. That means the mapping from `threadIdx.{x,y,z}` to the problem domain is not superficial; it determines which threads become neighbors inside a warp and therefore which memory addresses are accessed together. The third is **communication placement**. The same arithmetic can have drastically different cost depending on where data movement occurs. Reusing a value already in a register is extremely cheap. Reusing a value in shared memory is also good, though not as cheap. Fetching repeatedly from HBM is far more expensive. The arithmetic is unchanged, but the communication substrate completely changes the observed performance. The opening slide of the deck states exactly this framing: CUDA programming is about mapping high-dimensional workloads onto linear and hierarchical hardware, and performance is shaped by data layout, warp execution, and the placement of communication across HBM, shared memory, and registers.
 
 This abstract framing is not merely philosophical. It predicts every optimization that comes later. Once one understands that CUDA optimization is really the progressive removal of data-layout mismatch, execution mismatch, and poor communication placement, the whole lecture becomes conceptually unified.
 
@@ -68,7 +68,7 @@ This is the first moment where CUDA begins to differ from ordinary algorithm des
 
 The lecture then asks an apparently simple but extremely revealing question: is matrix multiplication compute-bound or memory-bound?
 
-At the mathematical level, matrix multiplication seems like a dream workload for the GPU. The arithmetic work grows as \(O(N^3)\), while the amount of stored data grows as \(O(N^2)\). As the matrix size grows, the arithmetic intensity improves. The slides make this concrete by using an H100 SXM GPU and a \(4096 \times 4096\) matrix multiplication. The H100 offers about 80 GB of HBM3 with roughly \(4.096\ \text{TB/s}\) of peak memory bandwidth, and about \(60\ \text{TFLOP/s}\) of FP32 CUDA-core throughput, with even higher tensor-core throughput in lower-precision formats. fileciteturn3file1
+At the mathematical level, matrix multiplication seems like a dream workload for the GPU. The arithmetic work grows as \(O(N^3)\), while the amount of stored data grows as \(O(N^2)\). As the matrix size grows, the arithmetic intensity improves. The slides make this concrete by using an H100 SXM GPU and a \(4096 \times 4096\) matrix multiplication. The H100 offers about 80 GB of HBM3 with roughly \(4.096\ \text{TB/s}\) of peak memory bandwidth, and about \(60\ \text{TFLOP/s}\) of FP32 CUDA-core throughput, with even higher tensor-core throughput in lower-precision formats.
 
 For \(C = A \times B + C\) with \(A, B, C \in \mathbb{R}^{4096 \times 4096}\), the total floating-point work is approximately
 
@@ -76,7 +76,7 @@ For \(C = A \times B + C\) with \(A, B, C \in \mathbb{R}^{4096 \times 4096}\), t
 2 \cdot 4096^3 + 4096^2 \approx 137\ \text{GFLOPs},
 \]
 
-where the factor of two comes from one multiply and one add per dot-product step, and the final \(4096^2\) term accounts for the addition of the old \(C\). The slides explicitly state this number. fileciteturn3file2
+where the factor of two comes from one multiply and one add per dot-product step, and the final \(4096^2\) term accounts for the addition of the old \(C\). The slides explicitly state this number.
 
 The minimum amount of data that must be read is the three input matrices \(A\), \(B\), and the original \(C\), which together cost about
 
@@ -90,9 +90,9 @@ and writing the output \(C\) adds another
 4096^2 \cdot 4\ \text{B} \approx 67\ \text{MB}.
 \]
 
-So the total lower-bound traffic is about \(268\ \text{MB}\). Again, the slide deck provides exactly these numbers. fileciteturn3file1
+So the total lower-bound traffic is about \(268\ \text{MB}\). Again, the slide deck provides exactly these numbers.
 
-From there, the idealized lower bounds are easy to compute. If one divides 268 MB by 4.096 TB/s, the transfer lower bound is around \(0.07\ \text{ms}\). If one divides 137 GFLOPs by 60 TFLOP/s, the compute lower bound is around \(2.3\ \text{ms}\). So the paper calculation says that compute time is roughly thirty times larger than the pure memory-transfer lower bound. The lecture therefore concludes, correctly at the algorithmic level, that GEMM should be compute-bound rather than bandwidth-bound. The slide on this point says exactly that: the operation is compute-bound, not bandwidth-bound. fileciteturn3file2
+From there, the idealized lower bounds are easy to compute. If one divides 268 MB by 4.096 TB/s, the transfer lower bound is around \(0.07\ \text{ms}\). If one divides 137 GFLOPs by 60 TFLOP/s, the compute lower bound is around \(2.3\ \text{ms}\). So the paper calculation says that compute time is roughly thirty times larger than the pure memory-transfer lower bound. The lecture therefore concludes, correctly at the algorithmic level, that GEMM should be compute-bound rather than bandwidth-bound. The slide on this point says exactly that: the operation is compute-bound, not bandwidth-bound.
 
 This is a perfect place to connect the lecture to the roofline model. The roofline says that performance is bounded by
 
@@ -108,7 +108,7 @@ And yet that is not what the naive kernel does.
 
 ## 4. Welcome to the real world: the two-order-of-magnitude gap
 
-The lecture then transitions from theory to measurement. The slide literally says, “Welcome to the real world!” It reports that although the H100 FP32 CUDA cores offer about \(60\ \text{TFLOP/s}\), the naive kernel reaches only about \(500\ \text{GFLOP/s}\), with total runtime exceeding 200 ms for the \(4096 \times 4096\) case. fileciteturn3file2
+The lecture then transitions from theory to measurement. The slide literally says, “Welcome to the real world!” It reports that although the H100 FP32 CUDA cores offer about \(60\ \text{TFLOP/s}\), the naive kernel reaches only about \(500\ \text{GFLOP/s}\), with total runtime exceeding 200 ms for the \(4096 \times 4096\) case.
 
 This is not a small inefficiency. It is a performance collapse. The measured throughput is more than a hundred times below the FP32 peak. The lecture quite rightly treats this as a debugging puzzle. The algorithm is correct. The arithmetic workload is large and highly parallel. The paper calculation predicts a compute-bound workload. So why does the implementation behave so badly?
 
@@ -128,9 +128,9 @@ This leads to the next architectural fact: DRAM is not optimized for reading iso
 
 This is the key insight. The expensive operation in DRAM is not “fetch one float.” The expensive operation is “activate a new row.” The memory system therefore wants each row activation to serve as many useful nearby requests as possible.
 
-The slide deck’s HBM section makes this concrete. A bank has a row buffer or page on the order of 1–2 KB, and burst transfers return chunks from the active row. Channels, stacks, and many banks operate in parallel to build up the aggregate HBM bandwidth. But all of that impressive bandwidth depends on the software giving the hardware addresses that let those row buffers and burst transfers be used efficiently. fileciteturn3file2
+The slide deck’s HBM section makes this concrete. A bank has a row buffer or page on the order of 1–2 KB, and burst transfers return chunks from the active row. Channels, stacks, and many banks operate in parallel to build up the aggregate HBM bandwidth. But all of that impressive bandwidth depends on the software giving the hardware addresses that let those row buffers and burst transfers be used efficiently.
 
-This is why stride matters so much. The slides include a bandwidth experiment in which small stride gives about \(1418\ \text{GB/s}\), while pathological stride—effectively consuming only one word out of a whole opened page—drops performance to around \(111\ \text{GB/s}\), only 8% of peak in that test. The measured gap is on the order of 12–13×. fileciteturn3file2
+This is why stride matters so much. The slides include a bandwidth experiment in which small stride gives about \(1418\ \text{GB/s}\), while pathological stride—effectively consuming only one word out of a whole opened page—drops performance to around \(111\ \text{GB/s}\), only 8% of peak in that test. The measured gap is on the order of 12–13×.
 
 Now the real meaning of coalescing becomes clear. Coalescing is not a stylistic programming preference. It is the software-side condition that lets the DRAM/HBM system satisfy a warp’s requests with a small number of dense burst transactions from open rows. If the warp’s requests are contiguous, each fetched chunk contains mostly useful data. If the warp’s requests are strided, far-apart, or scattered, the hardware opens rows and moves data that the kernel barely uses. That is why performance collapses.
 
@@ -140,7 +140,7 @@ This gives us the first diagnostic lens for the matrix-multiplication kernel: no
 
 ## 6. Warps, lockstep execution, and why thread-local locality is not enough
 
-The next critical layer of the lecture is the warp execution model. CUDA programmers often write two-dimensional or three-dimensional thread blocks because the problem itself is two-dimensional or three-dimensional. But the hardware does not execute “a 2D block” directly. It executes **warps** of 32 threads, and the lanes in a warp are assigned in a linear order: first `threadIdx.x`, then `threadIdx.y`, then `threadIdx.z`. The slide on warp organization emphasizes exactly this rule. fileciteturn3file2
+The next critical layer of the lecture is the warp execution model. CUDA programmers often write two-dimensional or three-dimensional thread blocks because the problem itself is two-dimensional or three-dimensional. But the hardware does not execute “a 2D block” directly. It executes **warps** of 32 threads, and the lanes in a warp are assigned in a linear order: first `threadIdx.x`, then `threadIdx.y`, then `threadIdx.z`. The slide on warp organization emphasizes exactly this rule.
 
 This matters because what the memory system sees is not the access pattern of one thread. It sees the combined access pattern of all 32 lanes in the warp, issued together in lockstep. A single thread may appear to have a perfectly reasonable access pattern and still belong to a warp whose collective access pattern is terrible.
 
@@ -155,11 +155,11 @@ Suppose adjacent lanes in the warp correspond to adjacent **rows** of \(C\) whil
 - \(A[i, k], A[i+1, k], A[i+2, k], \dots\), which is a **column** of \(A\) in row-major storage, hence highly strided;
 - and the same value \(B[k, j]\), which can often be served by broadcast-like behavior.
 
-This is the deep bug in the natural mapping. Thread-local reasoning says, “A is row-wise, so A should be fine.” Warp-level reasoning says, “At a fixed inner-loop iteration, the warp actually walks down a column of A.” That completely destroys global-memory locality. The slide sequence “A single thread,” “A warp of thread (Why is this bad?),” and “This is what we get” visualizes exactly this mismatch. fileciteturn3file2
+This is the deep bug in the natural mapping. Thread-local reasoning says, “A is row-wise, so A should be fine.” Warp-level reasoning says, “At a fixed inner-loop iteration, the warp actually walks down a column of A.” That completely destroys global-memory locality. The slide sequence “A single thread,” “A warp of thread (Why is this bad?),” and “This is what we get” visualizes exactly this mismatch.
 
 The important conceptual lesson is this:
 
-**Thread-local locality is not enough.**  
+**Thread-local locality is not enough.**
 For global memory, what matters is **warp-local locality**.
 
 ---
@@ -173,9 +173,9 @@ Now consider one inner-loop iteration again. All lanes in the warp use the same 
 - all lanes need the same scalar \(A[i,k]\), which is naturally broadcast-friendly;
 - and all lanes need consecutive elements \(B[k,j], B[k,j+1], \dots, B[k,j+31]\), which form a contiguous segment of row \(k\) of \(B\).
 
-This is exactly what the memory system wants. One operand becomes broadcast-like, and the other becomes coalesced. The slide “A warp of thread (what we want)” shows precisely this improved warp-level access pattern. fileciteturn3file2
+This is exactly what the memory system wants. One operand becomes broadcast-like, and the other becomes coalesced. The slide “A warp of thread (what we want)” shows precisely this improved warp-level access pattern.
 
-The beautiful part of this optimization is how small the code change is relative to its effect. The arithmetic is unchanged. The loop structure is unchanged. The algorithm is unchanged. Only the mapping from thread coordinates to output coordinates changes. Yet the measured performance improves from about \(0.5\ \text{TFLOP/s}\) to about \(6.3\ \text{TFLOP/s}\), which is almost exactly the same factor as the 12–13× bandwidth loss observed in the pathological stride experiment. The slide deck explicitly states this new result and summarizes it as Lesson 1: data in global memory should be accessed contiguously for maximum bandwidth efficiency. fileciteturn3file4
+The beautiful part of this optimization is how small the code change is relative to its effect. The arithmetic is unchanged. The loop structure is unchanged. The algorithm is unchanged. Only the mapping from thread coordinates to output coordinates changes. Yet the measured performance improves from about \(0.5\ \text{TFLOP/s}\) to about \(6.3\ \text{TFLOP/s}\), which is almost exactly the same factor as the 12–13× bandwidth loss observed in the pathological stride experiment. The slide deck explicitly states this new result and summarizes it as Lesson 1: data in global memory should be accessed contiguously for maximum bandwidth efficiency.
 
 This is the first major pedagogical payoff of the lecture. A seemingly tiny index change generates a huge speedup because that tiny change encodes a large physical truth about HBM and warp execution. CUDA optimization often feels like “small code, giant effect” for exactly this reason.
 
@@ -187,7 +187,7 @@ It is also worth adding a useful interpretive point here. The algorithmic arithm
 
 A 12× speedup is dramatic, but it is still far from H100 peak performance. So the next question is natural: where is the bottleneck now?
 
-The slides answer with a simple observation: **data fetched by threads are not shared.** fileciteturn3file4
+The slides answer with a simple observation: **data fetched by threads are not shared.**
 
 This is the next major systems insight. Even after global-memory coalescing is fixed, the kernel still lets each thread fetch the data it needs from HBM into its own private registers. Registers are private. If neighboring threads need overlapping pieces of \(A\) and \(B\), that overlap is not exploited. The same values get loaded many times by different threads.
 
@@ -203,7 +203,7 @@ Shared memory is small, fast, on-chip storage that is visible to all threads in 
 
 The idea of tiling is therefore conceptually straightforward. Suppose a block is assigned a tile of the output matrix \(C\). To compute that output tile, all threads in the block need a corresponding tile from \(A\) and a corresponding tile from \(B\). Instead of letting every thread fetch the needed data independently from HBM, let the block load the tiles cooperatively into shared memory. Then every thread reuses those values from shared memory while accumulating partial results.
 
-The slides break the process into explicit steps: determine the grid, block, and thread arrangement; determine which output tile of \(C\) this block owns; determine the corresponding tile regions in \(A\) and \(B\); copy those tiles from global memory into shared memory; compute tile-wise partial results; repeat across the \(K\) dimension; and finally write the result tile of \(C\). The “Shared Memory — Step by step” slides list this sequence explicitly. fileciteturn3file4 fileciteturn3file3
+The slides break the process into explicit steps: determine the grid, block, and thread arrangement; determine which output tile of \(C\) this block owns; determine the corresponding tile regions in \(A\) and \(B\); copy those tiles from global memory into shared memory; compute tile-wise partial results; repeat across the \(K\) dimension; and finally write the result tile of \(C\). The “Shared Memory — Step by step” slides list this sequence explicitly.
 
 A simplified kernel skeleton looks like this:
 
@@ -229,7 +229,7 @@ The exact indexing depends on tile sizes and block layout, but the architecture 
 
 This changes the communication picture dramatically. Each value brought from HBM into shared memory is now used by multiple threads in the block. A tile of \(A\) is reused across many output columns. A tile of \(B\) is reused across many output rows. In roofline language, the arithmetic intensity seen by HBM increases because the same number of HBM bytes now supports more FMAs.
 
-The lecture reports that shared-memory tiling improves performance from about \(6.3\ \text{TFLOP/s}\) to about \(9\ \text{TFLOP/s}\), and the associated slide describes this as “arithmetic intensity improves.” Lesson 2 on the slide states the core idea succinctly: tiling facilitates intra-block reuse by exploiting the shared memory of each streaming multiprocessor. fileciteturn3file4
+The lecture reports that shared-memory tiling improves performance from about \(6.3\ \text{TFLOP/s}\) to about \(9\ \text{TFLOP/s}\), and the associated slide describes this as “arithmetic intensity improves.” Lesson 2 on the slide states the core idea succinctly: tiling facilitates intra-block reuse by exploiting the shared memory of each streaming multiprocessor.
 
 There is also a deeper machine-learning-systems lesson here. Shared memory is software-managed, unlike L1 cache. That means the programmer or compiler is responsible for deciding what should live there. This is a form of explicit data orchestration. Once workloads become complex, deciding which reuse should be expressed through software-managed memory and which reuse can be left to hardware cache policy becomes an important systems question.
 
@@ -239,7 +239,7 @@ There is also a deeper machine-learning-systems lesson here. Shared memory is so
 
 Once shared-memory tiling is added, the bottleneck shifts again. This is an excellent example of hierarchical performance debugging. Optimizing one level of the hierarchy reveals the next one.
 
-The profiling slides show that the kernel remains memory-bound, but now the pressure is on shared memory rather than on HBM. The slide on warp stalls explains that the warp is stalled because the MIO (memory input/output) instruction queue is full, caused by heavy shared-memory instruction traffic within the block. The “Lots of memory accesses — Still memory bound” slides emphasize exactly this new diagnosis. fileciteturn3file3
+The profiling slides show that the kernel remains memory-bound, but now the pressure is on shared memory rather than on HBM. The slide on warp stalls explains that the warp is stalled because the MIO (memory input/output) instruction queue is full, caused by heavy shared-memory instruction traffic within the block. The “Lots of memory accesses — Still memory bound” slides emphasize exactly this new diagnosis.
 
 Why does this happen? Because in the basic tiled kernel, each thread still computes only one output element. For every inner-loop step, it must fetch one value from the \(A\) tile and one value from the \(B\) tile out of shared memory into registers, perform one multiply-add, and repeat. Shared memory is much faster than HBM, but if the kernel generates enormous amounts of shared-memory traffic, then the shared-memory pipeline itself becomes the limiter.
 
@@ -263,9 +263,9 @@ In one-dimensional register tiling, each thread computes a short vector of outpu
 float threadResults[TM] = {0.0f};
 ```
 
-Now when the thread loads one operand fragment, it can reuse that fragment across several accumulators. The “1D Register tiling” slides illustrate exactly this arrangement. The shared-memory tile is further decomposed into smaller fragments that become thread-local register tiles. The thread then computes several outputs rather than just one. fileciteturn3file3
+Now when the thread loads one operand fragment, it can reuse that fragment across several accumulators. The “1D Register tiling” slides illustrate exactly this arrangement. The shared-memory tile is further decomposed into smaller fragments that become thread-local register tiles. The thread then computes several outputs rather than just one.
 
-The performance impact is large. The lecture reports that with 1D register tiling, performance jumps from about \(9\ \text{TFLOP/s}\) to almost \(20\ \text{TFLOP/s}\), more than another 2× improvement. The corresponding slide says shared-memory bandwidth usage has been significantly improved. fileciteturn3file3
+The performance impact is large. The lecture reports that with 1D register tiling, performance jumps from about \(9\ \text{TFLOP/s}\) to almost \(20\ \text{TFLOP/s}\), more than another 2× improvement. The corresponding slide says shared-memory bandwidth usage has been significantly improved.
 
 ### 11.2 Two-dimensional register tiling
 
@@ -273,7 +273,7 @@ One-dimensional register tiling is only the first step. Two-dimensional register
 
 At this point, each thread becomes a tiny matrix-multiplication microkernel. It loads a small fragment from \(A\) and a small fragment from \(B\), then performs a small outer product into a \(T_M \times T_N\) tile of accumulators in registers. This is much closer to the structure of high-performance GEMM kernels in optimized libraries.
 
-The lecture reports that 2D register tiling pushes the kernel further, to roughly \(25.8\ \text{TFLOP/s}\). The slide explicitly says that shared-memory bandwidth usage is improved further with 2D tiling. fileciteturn3file3
+The lecture reports that 2D register tiling pushes the kernel further, to roughly \(25.8\ \text{TFLOP/s}\). The slide explicitly says that shared-memory bandwidth usage is improved further with 2D tiling.
 
 ### 11.3 Why register tiling works
 
@@ -303,7 +303,7 @@ The lecture next introduces **warp tiling**, and this is another important conce
 
 So far, the discussion has focused on blocks and threads. But the hardware actually schedules **warps**. Therefore, a mature mapping should not just assign useful work to a block and to a thread; it should also assign useful work to a warp as a collective object.
 
-The slide on warp tiling defines it explicitly: a warp collaboratively computes a sub-tile of the output matrix instead of each thread independently computing a single element. The purpose is to align computation with the warp execution unit, reduce unnecessary synchronization, exploit register reuse more effectively, and further raise arithmetic intensity. fileciteturn3file0
+The slide on warp tiling defines it explicitly: a warp collaboratively computes a sub-tile of the output matrix instead of each thread independently computing a single element. The purpose is to align computation with the warp execution unit, reduce unnecessary synchronization, exploit register reuse more effectively, and further raise arithmetic intensity.
 
 This is a beautiful conceptual refinement because it closes the loop on the earlier “execution mismatch” idea. The hardware executes warps, not arbitrary two-dimensional thread abstractions. Therefore, good software should increasingly shape computation around warps as first-class entities.
 
@@ -317,7 +317,7 @@ But the lecture also warns that warp tiling introduces new complications. Once a
 
 Shared memory is fast because it is banked. On H100, shared memory is effectively organized into 32 banks. In an ideal case, the 32 lanes of a warp each access a different bank, and the whole warp load can complete in one cycle. If several lanes map to the same bank, the accesses serialize. In the worst case, all 32 lanes may contend for the same bank, and what should have taken one cycle can take many cycles instead.
 
-The slide on H100 shared memory summarizes the idea clearly: conflict-free access takes one cycle, broadcast also takes one cycle, but a \(k\)-way conflict costs \(k\) cycles, so performance depends on bank mapping efficiency rather than merely on memory size. fileciteturn3file0
+The slide on H100 shared memory summarizes the idea clearly: conflict-free access takes one cycle, broadcast also takes one cycle, but a \(k\)-way conflict costs \(k\) cycles, so performance depends on bank mapping efficiency rather than merely on memory size.
 
 This introduces a new kind of locality problem. Even if data are “near” each other in shared memory, they may still be slow to access if they line up badly with the bank mapping. This often happens when data are written in one orientation and read in another. A warp may write a tile row-wise but later read it column-wise. If the stride interacts badly with the bank mapping, the access pattern can become highly conflicted.
 
@@ -348,9 +348,9 @@ That is why the opening frame of the lecture is so important. CUDA programming i
 
 ## 16. Why we still do not match cuBLAS
 
-By the end of the lecture, the optimized CUDA-core GEMM reaches roughly \(25\)–\(26\ \text{TFLOP/s}\), which is a remarkable improvement over the naive \(0.5\ \text{TFLOP/s}\). The total speedup is almost two orders of magnitude. The slide deck explicitly frames this as the cumulative result of putting all the pieces together: contiguous global-memory access, shared-memory reuse, warp- and register-level tiling, vectorization, and bank-aware shared-memory access. fileciteturn3file0
+By the end of the lecture, the optimized CUDA-core GEMM reaches roughly \(25\)–\(26\ \text{TFLOP/s}\), which is a remarkable improvement over the naive \(0.5\ \text{TFLOP/s}\). The total speedup is almost two orders of magnitude. The slide deck explicitly frames this as the cumulative result of putting all the pieces together: contiguous global-memory access, shared-memory reuse, warp- and register-level tiling, vectorization, and bank-aware shared-memory access.
 
-And yet this still does not fully match the H100’s theoretical CUDA-core FP32 peak, much less what tensor-core paths can achieve. The slides jokingly summarize this as Lesson 4: it is hard to beat cuBLAS on its own turf. fileciteturn3file0
+And yet this still does not fully match the H100’s theoretical CUDA-core FP32 peak, much less what tensor-core paths can achieve. The slides jokingly summarize this as Lesson 4: it is hard to beat cuBLAS on its own turf.
 
 Why is that true? There are several reasons.
 
