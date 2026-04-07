@@ -1,3 +1,22 @@
+---
+title: "Chapter 5. CUDA Programming as Hardware-Software Co-Optimization"
+layout: default
+mathjax: true
+---
+
+> To render the equations on GitHub Pages, add the MathJax snippet below to your site layout (for example, in `_layouts/default.html` or `_includes/head.html`):
+
+```html
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']]
+  }
+};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+```
 
 # Chapter 5. CUDA Programming as Hardware-Software Co-Optimization
 ## From Naive Matrix Multiplication to Hierarchical Tiling
@@ -28,11 +47,11 @@ This abstract framing is not merely philosophical. It predicts every optimizatio
 
 To make the discussion concrete, the lecture specializes to a square matrix multiplication:
 
-\[
+$$
 C = A \times B + C,
-\]
+$$
 
-where \(A\), \(B\), and \(C\) are all \(N \times N\) matrices stored in row-major order. This is a standard GEMM-like operation. The natural thread-mapping strategy is obvious: assign one thread to one element \(C_{ij}\). Then that thread reads row \(i\) of \(A\), column \(j\) of \(B\), performs the dot product, adds the previous value of \(C_{ij}\), and writes the final result.
+where $A$, $B$, and $C$ are all $N \times N$ matrices stored in row-major order. This is a standard GEMM-like operation. The natural thread-mapping strategy is obvious: assign one thread to one element $C_{ij}$. Then that thread reads row $i$ of $A$, column $j$ of $B$, performs the dot product, adds the previous value of $C_{ij}$, and writes the final result.
 
 A minimal CUDA kernel for that idea is straightforward:
 
@@ -68,39 +87,39 @@ This is the first moment where CUDA begins to differ from ordinary algorithm des
 
 The lecture then asks an apparently simple but extremely revealing question: is matrix multiplication compute-bound or memory-bound?
 
-At the mathematical level, matrix multiplication seems like a dream workload for the GPU. The arithmetic work grows as \(O(N^3)\), while the amount of stored data grows as \(O(N^2)\). As the matrix size grows, the arithmetic intensity improves. The slides make this concrete by using an H100 SXM GPU and a \(4096 \times 4096\) matrix multiplication. The H100 offers about 80 GB of HBM3 with roughly \(4.096\ \text{TB/s}\) of peak memory bandwidth, and about \(60\ \text{TFLOP/s}\) of FP32 CUDA-core throughput, with even higher tensor-core throughput in lower-precision formats.
+At the mathematical level, matrix multiplication seems like a dream workload for the GPU. The arithmetic work grows as $O(N^3)$, while the amount of stored data grows as $O(N^2)$. As the matrix size grows, the arithmetic intensity improves. The slides make this concrete by using an H100 SXM GPU and a $4096 \times 4096$ matrix multiplication. The H100 offers about 80 GB of HBM3 with roughly $4.096\ \text{TB/s}$ of peak memory bandwidth, and about $60\ \text{TFLOP/s}$ of FP32 CUDA-core throughput, with even higher tensor-core throughput in lower-precision formats.
 
-For \(C = A \times B + C\) with \(A, B, C \in \mathbb{R}^{4096 \times 4096}\), the total floating-point work is approximately
+For $C = A \times B + C$ with $A, B, C \in \mathbb{R}^{4096 \times 4096}$, the total floating-point work is approximately
 
-\[
+$$
 2 \cdot 4096^3 + 4096^2 \approx 137\ \text{GFLOPs},
-\]
+$$
 
-where the factor of two comes from one multiply and one add per dot-product step, and the final \(4096^2\) term accounts for the addition of the old \(C\). The slides explicitly state this number.
+where the factor of two comes from one multiply and one add per dot-product step, and the final $4096^2$ term accounts for the addition of the old $C$. The slides explicitly state this number.
 
-The minimum amount of data that must be read is the three input matrices \(A\), \(B\), and the original \(C\), which together cost about
+The minimum amount of data that must be read is the three input matrices $A$, $B$, and the original $C$, which together cost about
 
-\[
+$$
 3 \cdot 4096^2 \cdot 4\ \text{B} \approx 201\ \text{MB},
-\]
+$$
 
-and writing the output \(C\) adds another
+and writing the output $C$ adds another
 
-\[
+$$
 4096^2 \cdot 4\ \text{B} \approx 67\ \text{MB}.
-\]
+$$
 
-So the total lower-bound traffic is about \(268\ \text{MB}\). Again, the slide deck provides exactly these numbers.
+So the total lower-bound traffic is about $268\ \text{MB}$. Again, the slide deck provides exactly these numbers.
 
-From there, the idealized lower bounds are easy to compute. If one divides 268 MB by 4.096 TB/s, the transfer lower bound is around \(0.07\ \text{ms}\). If one divides 137 GFLOPs by 60 TFLOP/s, the compute lower bound is around \(2.3\ \text{ms}\). So the paper calculation says that compute time is roughly thirty times larger than the pure memory-transfer lower bound. The lecture therefore concludes, correctly at the algorithmic level, that GEMM should be compute-bound rather than bandwidth-bound. The slide on this point says exactly that: the operation is compute-bound, not bandwidth-bound.
+From there, the idealized lower bounds are easy to compute. If one divides 268 MB by 4.096 TB/s, the transfer lower bound is around $0.07\ \text{ms}$. If one divides 137 GFLOPs by 60 TFLOP/s, the compute lower bound is around $2.3\ \text{ms}$. So the paper calculation says that compute time is roughly thirty times larger than the pure memory-transfer lower bound. The lecture therefore concludes, correctly at the algorithmic level, that GEMM should be compute-bound rather than bandwidth-bound. The slide on this point says exactly that: the operation is compute-bound, not bandwidth-bound.
 
 This is a perfect place to connect the lecture to the roofline model. The roofline says that performance is bounded by
 
-\[
+$$
 P \le \min(P_{\text{peak}}, BW_{\text{peak}}\cdot I),
-\]
+$$
 
-where \(P_{\text{peak}}\) is the peak arithmetic throughput, \(BW_{\text{peak}}\) is the peak bandwidth, and \(I\) is arithmetic intensity in FLOPs per byte. GEMM has high intensity in theory, so it should sit near the compute roof rather than the memory roof.
+where $P_{\text{peak}}$ is the peak arithmetic throughput, $BW_{\text{peak}}$ is the peak bandwidth, and $I$ is arithmetic intensity in FLOPs per byte. GEMM has high intensity in theory, so it should sit near the compute roof rather than the memory roof.
 
 And yet that is not what the naive kernel does.
 
@@ -108,7 +127,7 @@ And yet that is not what the naive kernel does.
 
 ## 4. Welcome to the real world: the two-order-of-magnitude gap
 
-The lecture then transitions from theory to measurement. The slide literally says, “Welcome to the real world!” It reports that although the H100 FP32 CUDA cores offer about \(60\ \text{TFLOP/s}\), the naive kernel reaches only about \(500\ \text{GFLOP/s}\), with total runtime exceeding 200 ms for the \(4096 \times 4096\) case.
+The lecture then transitions from theory to measurement. The slide literally says, “Welcome to the real world!” It reports that although the H100 FP32 CUDA cores offer about $60\ \text{TFLOP/s}$, the naive kernel reaches only about $500\ \text{GFLOP/s}$, with total runtime exceeding 200 ms for the $4096 \times 4096$ case.
 
 This is not a small inefficiency. It is a performance collapse. The measured throughput is more than a hundred times below the FP32 peak. The lecture quite rightly treats this as a debugging puzzle. The algorithm is correct. The arithmetic workload is large and highly parallel. The paper calculation predicts a compute-bound workload. So why does the implementation behave so badly?
 
@@ -130,7 +149,7 @@ This is the key insight. The expensive operation in DRAM is not “fetch one flo
 
 The slide deck’s HBM section makes this concrete. A bank has a row buffer or page on the order of 1–2 KB, and burst transfers return chunks from the active row. Channels, stacks, and many banks operate in parallel to build up the aggregate HBM bandwidth. But all of that impressive bandwidth depends on the software giving the hardware addresses that let those row buffers and burst transfers be used efficiently.
 
-This is why stride matters so much. The slides include a bandwidth experiment in which small stride gives about \(1418\ \text{GB/s}\), while pathological stride—effectively consuming only one word out of a whole opened page—drops performance to around \(111\ \text{GB/s}\), only 8% of peak in that test. The measured gap is on the order of 12–13×.
+This is why stride matters so much. The slides include a bandwidth experiment in which small stride gives about $1418\ \text{GB/s}$, while pathological stride—effectively consuming only one word out of a whole opened page—drops performance to around $111\ \text{GB/s}$, only 8% of peak in that test. The measured gap is on the order of 12–13×.
 
 Now the real meaning of coalescing becomes clear. Coalescing is not a stylistic programming preference. It is the software-side condition that lets the DRAM/HBM system satisfy a warp’s requests with a small number of dense burst transactions from open rows. If the warp’s requests are contiguous, each fetched chunk contains mostly useful data. If the warp’s requests are strided, far-apart, or scattered, the hardware opens rows and moves data that the kernel barely uses. That is why performance collapses.
 
@@ -146,14 +165,14 @@ This matters because what the memory system sees is not the access pattern of on
 
 That is exactly what happens in the naive matrix multiplication mapping.
 
-If one looks only at a single thread computing \(C_{ij}\), its accesses appear mixed but understandable. It walks along row \(i\) of \(A\), which is contiguous in row-major memory, and it walks down column \(j\) of \(B\), which is strided and therefore not local. At the single-thread level, \(A\) looks good and \(B\) looks bad.
+If one looks only at a single thread computing $C_{ij}$, its accesses appear mixed but understandable. It walks along row $i$ of $A$, which is contiguous in row-major memory, and it walks down column $j$ of $B$, which is strided and therefore not local. At the single-thread level, $A$ looks good and $B$ looks bad.
 
 But that is not the question the hardware asks.
 
-Suppose adjacent lanes in the warp correspond to adjacent **rows** of \(C\) while keeping the same column \(j\). Then in one step of the inner \(k\)-loop, the 32 lanes read:
+Suppose adjacent lanes in the warp correspond to adjacent **rows** of $C$ while keeping the same column $j$. Then in one step of the inner $k$-loop, the 32 lanes read:
 
-- \(A[i, k], A[i+1, k], A[i+2, k], \dots\), which is a **column** of \(A\) in row-major storage, hence highly strided;
-- and the same value \(B[k, j]\), which can often be served by broadcast-like behavior.
+- $A[i, k], A[i+1, k], A[i+2, k], \dots$, which is a **column** of $A$ in row-major storage, hence highly strided;
+- and the same value $B[k, j]$, which can often be served by broadcast-like behavior.
 
 This is the deep bug in the natural mapping. Thread-local reasoning says, “A is row-wise, so A should be fine.” Warp-level reasoning says, “At a fixed inner-loop iteration, the warp actually walks down a column of A.” That completely destroys global-memory locality. The slide sequence “A single thread,” “A warp of thread (Why is this bad?),” and “This is what we get” visualizes exactly this mismatch.
 
@@ -166,16 +185,16 @@ For global memory, what matters is **warp-local locality**.
 
 ## 7. The first real optimization: align the warp with rows, not columns
 
-Once the problem is stated at the warp level, the fix becomes surprisingly simple. Instead of letting the warp cover a column-wise strip of the output \(C\), make the warp cover a **row-wise strip**.
+Once the problem is stated at the warp level, the fix becomes surprisingly simple. Instead of letting the warp cover a column-wise strip of the output $C$, make the warp cover a **row-wise strip**.
 
-Now consider one inner-loop iteration again. All lanes in the warp use the same \(k\). If they share the same output row \(i\) and cover adjacent output columns \(j, j+1, \dots, j+31\), then:
+Now consider one inner-loop iteration again. All lanes in the warp use the same $k$. If they share the same output row $i$ and cover adjacent output columns $j, j+1, \dots, j+31$, then:
 
-- all lanes need the same scalar \(A[i,k]\), which is naturally broadcast-friendly;
-- and all lanes need consecutive elements \(B[k,j], B[k,j+1], \dots, B[k,j+31]\), which form a contiguous segment of row \(k\) of \(B\).
+- all lanes need the same scalar $A[i,k]$, which is naturally broadcast-friendly;
+- and all lanes need consecutive elements $B[k,j], B[k,j+1], \dots, B[k,j+31]$, which form a contiguous segment of row $k$ of $B$.
 
 This is exactly what the memory system wants. One operand becomes broadcast-like, and the other becomes coalesced. The slide “A warp of thread (what we want)” shows precisely this improved warp-level access pattern.
 
-The beautiful part of this optimization is how small the code change is relative to its effect. The arithmetic is unchanged. The loop structure is unchanged. The algorithm is unchanged. Only the mapping from thread coordinates to output coordinates changes. Yet the measured performance improves from about \(0.5\ \text{TFLOP/s}\) to about \(6.3\ \text{TFLOP/s}\), which is almost exactly the same factor as the 12–13× bandwidth loss observed in the pathological stride experiment. The slide deck explicitly states this new result and summarizes it as Lesson 1: data in global memory should be accessed contiguously for maximum bandwidth efficiency.
+The beautiful part of this optimization is how small the code change is relative to its effect. The arithmetic is unchanged. The loop structure is unchanged. The algorithm is unchanged. Only the mapping from thread coordinates to output coordinates changes. Yet the measured performance improves from about $0.5\ \text{TFLOP/s}$ to about $6.3\ \text{TFLOP/s}$, which is almost exactly the same factor as the 12–13× bandwidth loss observed in the pathological stride experiment. The slide deck explicitly states this new result and summarizes it as Lesson 1: data in global memory should be accessed contiguously for maximum bandwidth efficiency.
 
 This is the first major pedagogical payoff of the lecture. A seemingly tiny index change generates a huge speedup because that tiny change encodes a large physical truth about HBM and warp execution. CUDA optimization often feels like “small code, giant effect” for exactly this reason.
 
@@ -189,9 +208,9 @@ A 12× speedup is dramatic, but it is still far from H100 peak performance. So t
 
 The slides answer with a simple observation: **data fetched by threads are not shared.**
 
-This is the next major systems insight. Even after global-memory coalescing is fixed, the kernel still lets each thread fetch the data it needs from HBM into its own private registers. Registers are private. If neighboring threads need overlapping pieces of \(A\) and \(B\), that overlap is not exploited. The same values get loaded many times by different threads.
+This is the next major systems insight. Even after global-memory coalescing is fixed, the kernel still lets each thread fetch the data it needs from HBM into its own private registers. Registers are private. If neighboring threads need overlapping pieces of $A$ and $B$, that overlap is not exploited. The same values get loaded many times by different threads.
 
-At the algorithmic level, GEMM should move \(O(N^2)\) data and perform \(O(N^3)\) arithmetic. But if every thread loads its own private copy of overlapping operands, the **effective** global-memory traffic can behave much closer to \(O(N^3)\). This is exactly the type of communication-placement failure the opening slide warned about. The arithmetic has not changed, but the placement of reuse is completely wrong.
+At the algorithmic level, GEMM should move $O(N^2)$ data and perform $O(N^3)$ arithmetic. But if every thread loads its own private copy of overlapping operands, the **effective** global-memory traffic can behave much closer to $O(N^3)$. This is exactly the type of communication-placement failure the opening slide warned about. The arithmetic has not changed, but the placement of reuse is completely wrong.
 
 This is why the lecture next introduces shared memory.
 
@@ -201,9 +220,9 @@ This is why the lecture next introduces shared memory.
 
 Shared memory is small, fast, on-chip storage that is visible to all threads in a block. The critical word is **shared**. Registers are private, so they cannot support inter-thread reuse. Shared memory can.
 
-The idea of tiling is therefore conceptually straightforward. Suppose a block is assigned a tile of the output matrix \(C\). To compute that output tile, all threads in the block need a corresponding tile from \(A\) and a corresponding tile from \(B\). Instead of letting every thread fetch the needed data independently from HBM, let the block load the tiles cooperatively into shared memory. Then every thread reuses those values from shared memory while accumulating partial results.
+The idea of tiling is therefore conceptually straightforward. Suppose a block is assigned a tile of the output matrix $C$. To compute that output tile, all threads in the block need a corresponding tile from $A$ and a corresponding tile from $B$. Instead of letting every thread fetch the needed data independently from HBM, let the block load the tiles cooperatively into shared memory. Then every thread reuses those values from shared memory while accumulating partial results.
 
-The slides break the process into explicit steps: determine the grid, block, and thread arrangement; determine which output tile of \(C\) this block owns; determine the corresponding tile regions in \(A\) and \(B\); copy those tiles from global memory into shared memory; compute tile-wise partial results; repeat across the \(K\) dimension; and finally write the result tile of \(C\). The “Shared Memory — Step by step” slides list this sequence explicitly.
+The slides break the process into explicit steps: determine the grid, block, and thread arrangement; determine which output tile of $C$ this block owns; determine the corresponding tile regions in $A$ and $B$; copy those tiles from global memory into shared memory; compute tile-wise partial results; repeat across the $K$ dimension; and finally write the result tile of $C$. The “Shared Memory — Step by step” slides list this sequence explicitly.
 
 A simplified kernel skeleton looks like this:
 
@@ -227,9 +246,9 @@ for (int tile = 0; tile < K; tile += BK) {
 
 The exact indexing depends on tile sizes and block layout, but the architecture is the same: HBM to shared memory once per tile, then many arithmetic operations reusing the tile on-chip.
 
-This changes the communication picture dramatically. Each value brought from HBM into shared memory is now used by multiple threads in the block. A tile of \(A\) is reused across many output columns. A tile of \(B\) is reused across many output rows. In roofline language, the arithmetic intensity seen by HBM increases because the same number of HBM bytes now supports more FMAs.
+This changes the communication picture dramatically. Each value brought from HBM into shared memory is now used by multiple threads in the block. A tile of $A$ is reused across many output columns. A tile of $B$ is reused across many output rows. In roofline language, the arithmetic intensity seen by HBM increases because the same number of HBM bytes now supports more FMAs.
 
-The lecture reports that shared-memory tiling improves performance from about \(6.3\ \text{TFLOP/s}\) to about \(9\ \text{TFLOP/s}\), and the associated slide describes this as “arithmetic intensity improves.” Lesson 2 on the slide states the core idea succinctly: tiling facilitates intra-block reuse by exploiting the shared memory of each streaming multiprocessor.
+The lecture reports that shared-memory tiling improves performance from about $6.3\ \text{TFLOP/s}$ to about $9\ \text{TFLOP/s}$, and the associated slide describes this as “arithmetic intensity improves.” Lesson 2 on the slide states the core idea succinctly: tiling facilitates intra-block reuse by exploiting the shared memory of each streaming multiprocessor.
 
 There is also a deeper machine-learning-systems lesson here. Shared memory is software-managed, unlike L1 cache. That means the programmer or compiler is responsible for deciding what should live there. This is a form of explicit data orchestration. Once workloads become complex, deciding which reuse should be expressed through software-managed memory and which reuse can be left to hardware cache policy becomes an important systems question.
 
@@ -241,7 +260,7 @@ Once shared-memory tiling is added, the bottleneck shifts again. This is an exce
 
 The profiling slides show that the kernel remains memory-bound, but now the pressure is on shared memory rather than on HBM. The slide on warp stalls explains that the warp is stalled because the MIO (memory input/output) instruction queue is full, caused by heavy shared-memory instruction traffic within the block. The “Lots of memory accesses — Still memory bound” slides emphasize exactly this new diagnosis.
 
-Why does this happen? Because in the basic tiled kernel, each thread still computes only one output element. For every inner-loop step, it must fetch one value from the \(A\) tile and one value from the \(B\) tile out of shared memory into registers, perform one multiply-add, and repeat. Shared memory is much faster than HBM, but if the kernel generates enormous amounts of shared-memory traffic, then the shared-memory pipeline itself becomes the limiter.
+Why does this happen? Because in the basic tiled kernel, each thread still computes only one output element. For every inner-loop step, it must fetch one value from the $A$ tile and one value from the $B$ tile out of shared memory into registers, perform one multiply-add, and repeat. Shared memory is much faster than HBM, but if the kernel generates enormous amounts of shared-memory traffic, then the shared-memory pipeline itself becomes the limiter.
 
 This is the second major performance-debugging lesson of the lecture. The bottleneck has not disappeared. It has moved inward in the hierarchy.
 
@@ -253,7 +272,7 @@ The fix now is not to reduce HBM traffic further. The fix is to reduce **shared-
 
 The lecture frames the next idea very well: if we want fewer shared-memory instructions, then each thread must do more work.
 
-This is the basic intuition behind **register tiling**. In the current tiled kernel, a thread computes only one output \(C_{ij}\). That means a value fetched from shared memory is used once and then discarded. But registers are the fastest storage on the machine. If each thread were responsible for multiple outputs, then a value loaded from shared memory into a register could be reused across several FMAs before being discarded. Shared-memory traffic per FLOP would fall.
+This is the basic intuition behind **register tiling**. In the current tiled kernel, a thread computes only one output $C_{ij}$. That means a value fetched from shared memory is used once and then discarded. But registers are the fastest storage on the machine. If each thread were responsible for multiple outputs, then a value loaded from shared memory into a register could be reused across several FMAs before being discarded. Shared-memory traffic per FLOP would fall.
 
 ### 11.1 One-dimensional register tiling
 
@@ -265,15 +284,15 @@ float threadResults[TM] = {0.0f};
 
 Now when the thread loads one operand fragment, it can reuse that fragment across several accumulators. The “1D Register tiling” slides illustrate exactly this arrangement. The shared-memory tile is further decomposed into smaller fragments that become thread-local register tiles. The thread then computes several outputs rather than just one.
 
-The performance impact is large. The lecture reports that with 1D register tiling, performance jumps from about \(9\ \text{TFLOP/s}\) to almost \(20\ \text{TFLOP/s}\), more than another 2× improvement. The corresponding slide says shared-memory bandwidth usage has been significantly improved.
+The performance impact is large. The lecture reports that with 1D register tiling, performance jumps from about $9\ \text{TFLOP/s}$ to almost $20\ \text{TFLOP/s}$, more than another 2× improvement. The corresponding slide says shared-memory bandwidth usage has been significantly improved.
 
 ### 11.2 Two-dimensional register tiling
 
-One-dimensional register tiling is only the first step. Two-dimensional register tiling lets each thread compute a small patch of outputs rather than a vector. That means both the \(A\)-side and \(B\)-side operands can be reused more effectively within the thread.
+One-dimensional register tiling is only the first step. Two-dimensional register tiling lets each thread compute a small patch of outputs rather than a vector. That means both the $A$-side and $B$-side operands can be reused more effectively within the thread.
 
-At this point, each thread becomes a tiny matrix-multiplication microkernel. It loads a small fragment from \(A\) and a small fragment from \(B\), then performs a small outer product into a \(T_M \times T_N\) tile of accumulators in registers. This is much closer to the structure of high-performance GEMM kernels in optimized libraries.
+At this point, each thread becomes a tiny matrix-multiplication microkernel. It loads a small fragment from $A$ and a small fragment from $B$, then performs a small outer product into a $T_M \times T_N$ tile of accumulators in registers. This is much closer to the structure of high-performance GEMM kernels in optimized libraries.
 
-The lecture reports that 2D register tiling pushes the kernel further, to roughly \(25.8\ \text{TFLOP/s}\). The slide explicitly says that shared-memory bandwidth usage is improved further with 2D tiling.
+The lecture reports that 2D register tiling pushes the kernel further, to roughly $25.8\ \text{TFLOP/s}$. The slide explicitly says that shared-memory bandwidth usage is improved further with 2D tiling.
 
 ### 11.3 Why register tiling works
 
@@ -317,7 +336,7 @@ But the lecture also warns that warp tiling introduces new complications. Once a
 
 Shared memory is fast because it is banked. On H100, shared memory is effectively organized into 32 banks. In an ideal case, the 32 lanes of a warp each access a different bank, and the whole warp load can complete in one cycle. If several lanes map to the same bank, the accesses serialize. In the worst case, all 32 lanes may contend for the same bank, and what should have taken one cycle can take many cycles instead.
 
-The slide on H100 shared memory summarizes the idea clearly: conflict-free access takes one cycle, broadcast also takes one cycle, but a \(k\)-way conflict costs \(k\) cycles, so performance depends on bank mapping efficiency rather than merely on memory size.
+The slide on H100 shared memory summarizes the idea clearly: conflict-free access takes one cycle, broadcast also takes one cycle, but a $k$-way conflict costs $k$ cycles, so performance depends on bank mapping efficiency rather than merely on memory size.
 
 This introduces a new kind of locality problem. Even if data are “near” each other in shared memory, they may still be slow to access if they line up badly with the bank mapping. This often happens when data are written in one orientation and read in another. A warp may write a tile row-wise but later read it column-wise. If the stride interacts badly with the bank mapping, the access pattern can become highly conflicted.
 
@@ -348,7 +367,7 @@ That is why the opening frame of the lecture is so important. CUDA programming i
 
 ## 16. Why we still do not match cuBLAS
 
-By the end of the lecture, the optimized CUDA-core GEMM reaches roughly \(25\)–\(26\ \text{TFLOP/s}\), which is a remarkable improvement over the naive \(0.5\ \text{TFLOP/s}\). The total speedup is almost two orders of magnitude. The slide deck explicitly frames this as the cumulative result of putting all the pieces together: contiguous global-memory access, shared-memory reuse, warp- and register-level tiling, vectorization, and bank-aware shared-memory access.
+By the end of the lecture, the optimized CUDA-core GEMM reaches roughly $25$–$26\ \text{TFLOP/s}$, which is a remarkable improvement over the naive $0.5\ \text{TFLOP/s}$. The total speedup is almost two orders of magnitude. The slide deck explicitly frames this as the cumulative result of putting all the pieces together: contiguous global-memory access, shared-memory reuse, warp- and register-level tiling, vectorization, and bank-aware shared-memory access.
 
 And yet this still does not fully match the H100’s theoretical CUDA-core FP32 peak, much less what tensor-core paths can achieve. The slides jokingly summarize this as Lesson 4: it is hard to beat cuBLAS on its own turf.
 
