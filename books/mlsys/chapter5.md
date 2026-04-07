@@ -4,19 +4,6 @@ layout: default
 mathjax: true
 ---
 
-> To render the equations on GitHub Pages, add the MathJax snippet below to your site layout (for example, in `_layouts/default.html` or `_includes/head.html`):
-
-```html
-<script>
-window.MathJax = {
-  tex: {
-    inlineMath: [['$', '$'], ['\\(', '\\)']],
-    displayMath: [['$$', '$$'], ['\\[', '\\]']]
-  }
-};
-</script>
-<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-```
 
 # Chapter 5. CUDA Programming as Hardware-Software Co-Optimization
 ## From Naive Matrix Multiplication to Hierarchical Tiling
