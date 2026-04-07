@@ -6,7 +6,9 @@ Today, that barrier is dissolving. We are entering a time where a single individ
 
 ---
 
-## Section 1: GPU Performance Analysis Guide: Identifying Bottlenecks with ncu
+## Phase 1: GPU Performance Analysis Guide: Identifying Bottlenecks with ncu
+
+**Deadline** 8am Apr. 21 2026
 
 **NVIDIA Nsight Compute (ncu)** is an interactive kernel-level profiling tool for CUDA kernels. Unlike Nsight Systems (nsys), which observes the global timeline, `ncu` dives deep into the internal execution of each kernel to show how hardware resources are being consumed.
 
