@@ -33,9 +33,9 @@ Before discussing compilers, we must first clarify *what exactly is being optimi
 
 When we studied GPU programming, the central picture was already visible. A tensor computation can be viewed as an **iteration space**: the set of all loop-index tuples that define the work. For matrix multiplication,
 
-\[
+$$
 C[i,j] = \sum_k A[i,k]B[k,j],
-\]
+$$
 
 a natural implementation is
 
@@ -760,3 +760,7 @@ If you can answer those five questions, you usually understand the essence of th
 Deep learning compilers exist because high-level tensor computations must be mapped onto low-level hardware execution, and that mapping is a large structured optimization problem. The optimization knobs—tiling, memory placement, loop order, fusion, unrolling, thread mapping, and synchronization—form a discrete, coupled search space that is too large to solve manually at scale. The compiler stack exists because different layers preserve different structures, and different optimizations require different visibility.
 
 TVM represents the broad, pre-LLM answer: a general compiler stack with graph IR, tensor scheduling, and autotuning across many backends. Triton represents the first LLM-era answer: a Pythonic, block-level DSL specialized enough to make custom GPU kernels practical for model developers. TileLang represents the return of exposed control once Triton’s black-box automation hits a ceiling on increasingly specialized kernels. CUDA-L2 represents the next step: letting learned systems search low-level kernel design spaces more broadly and systematically than humans do. Together, these systems tell one coherent story: the future of AI systems lies not in any single compiler abstraction, but in a layered, structured synthesis of representation, optimization, and increasingly automated search.
+
+<script type="text/javascript" async
+  src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
