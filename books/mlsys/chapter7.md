@@ -53,9 +53,9 @@ for (int i = 0; i < M; ++i) {
 
 The iteration space is the set
 
-\[
+$$
 \{(i,j,k) \mid 0 \le i < M,\; 0 \le j < N,\; 0 \le k < K\}.
-\]
+$$
 
 A GPU kernel is, in essence, a mapping from this iteration space to hardware execution and the memory hierarchy.
 
@@ -111,9 +111,9 @@ The lecture’s most important abstraction is that all these choices together fo
 
 A kernel is not optimized by a single decision. It is optimized by a tuple of decisions:
 
-\[
+$$
 \theta = (\theta_{\text{tile}},\theta_{\text{mem}},\theta_{\text{perm}},\theta_{\text{fusion}},\theta_{\text{unroll}},\theta_{\text{map}},\theta_{\text{sync}}).
-\]
+$$
 
 Each component is usually discrete. Tile sizes are selected from a finite set. Loop orders are permutations. Unroll factors are integers. Thread mappings are categorical choices. Synchronization patterns are discrete design choices. Real kernels typically involve many such variables, often well beyond ten and sometimes beyond twenty.
 
@@ -251,9 +251,9 @@ At the graph level, TVM can perform hardware-agnostic transformations before det
 
 Operator fusion is among the most important graph-level optimizations. Consider
 
-\[
+$$
 y = \operatorname{GELU}(XW + b).
-\]
+$$
 
 Without fusion, `MatMul`, `Add`, and `GELU` are separate operators. Intermediate tensors are written out and read back. With fusion, these operations may be collapsed into one larger kernel so the intermediate value remains in registers or cache rather than being materialized in HBM.
 
