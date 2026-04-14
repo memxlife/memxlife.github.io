@@ -200,7 +200,7 @@ At a high level, TVM separates the compilation problem into several layers.
 - At the **backend level**, TVM lowers the scheduled tensor program into target-specific code such as LLVM IR, CUDA, ROCm, or other backends.
 - At **runtime**, TVM handles module loading, memory, launching, and coordination.
 
-Historically, TVM’s high-level graph IR was **Relay**; more recent TVM work increasingly emphasizes **Relax** for graph-level abstraction and dynamic-shape support. On the tensor side, TVM evolved from **Tensor Expression (TE)** toward **TensorIR (TIR)** as a more explicit and transformation-friendly representation. The current TVM documentation describes Relax as the graph abstraction for ML models and TensorIR as the tensor program abstraction for loops, buffers, and hardware-related scheduling structure. citeturn469929search6turn469929search2turn469929search1
+Historically, TVM’s high-level graph IR was **Relay**; more recent TVM work increasingly emphasizes **Relax** for graph-level abstraction and dynamic-shape support. On the tensor side, TVM evolved from **Tensor Expression (TE)** toward **TensorIR (TIR)** as a more explicit and transformation-friendly representation. The current TVM documentation describes Relax as the graph abstraction for ML models and TensorIR as the tensor program abstraction for loops, buffers, and hardware-related scheduling structure. 
 
 ### 6.3 Compute–schedule separation: TVM’s core intellectual move
 
@@ -239,13 +239,13 @@ This tiny example expresses several deep ideas at once.
 - `parallel` exposes parallel work.
 - `vectorize` maps the innermost contiguous iteration to SIMD or vectorized execution.
 
-TVM’s TensorIR documentation explains this general style as a sequence of transformations over tensor programs. A TensorIR program contains buffers, loop nests, and computation blocks; scheduling is the process of invoking transformation primitives such as loop reordering, partitioning, and tensorization to move the program toward an efficient implementation. citeturn469929search1turn469929search3turn677223view5
+TVM’s TensorIR documentation explains this general style as a sequence of transformations over tensor programs. A TensorIR program contains buffers, loop nests, and computation blocks; scheduling is the process of invoking transformation primitives such as loop reordering, partitioning, and tensorization to move the program toward an efficient implementation. 
 
 This separation is one of the most important ideas in modern ML compilers. It decouples correctness from performance. A model or operator can remain mathematically stable while many schedules are explored automatically.
 
 ### 6.4 Graph-level optimization in TVM
 
-At the graph level, TVM can perform hardware-agnostic transformations before detailed scheduling begins. TVM’s pass infrastructure and graph-level IR support optimizations such as operator fusion, constant folding, dead code elimination, layout alteration, and memory planning. citeturn469929search0turn469929search6
+At the graph level, TVM can perform hardware-agnostic transformations before detailed scheduling begins. TVM’s pass infrastructure and graph-level IR support optimizations such as operator fusion, constant folding, dead code elimination, layout alteration, and memory planning. 
 
 #### Operator fusion
 
@@ -270,7 +270,7 @@ The key conditions for legal and profitable fusion are:
 
 Once we move into TensorIR, the program becomes loop-and-memory aware. This is where TVM’s schedule space resembles structured CUDA optimization.
 
-The TensorIR documentation emphasizes that tensor programs explicitly represent buffers, loops, and blocks, and that the abstraction is designed to expose hardware acceleration options such as threading, memory access, and specialized instructions. citeturn469929search1turn469929search3
+The TensorIR documentation emphasizes that tensor programs explicitly represent buffers, loops, and blocks, and that the abstraction is designed to expose hardware acceleration options such as threading, memory access, and specialized instructions. 
 
 Typical tensor-level schedule primitives include:
 
@@ -303,7 +303,7 @@ This is the classic autotuning loop: measurement, prediction, search, feedback.
 
 #### MetaSchedule
 
-MetaSchedule generalizes this idea. The 2021 TVM RFC describes Meta Schedule as a probabilistic scheduling DSL on TensorIR that unifies AutoTVM and AutoScheduler-style approaches, directly operating over schedule primitives in TIR and making the automation infrastructure customizable at every layer. It is explicitly described there as TVM’s third-generation automatic scheduling system. citeturn677223view5
+MetaSchedule generalizes this idea. The 2021 TVM RFC describes Meta Schedule as a probabilistic scheduling DSL on TensorIR that unifies AutoTVM and AutoScheduler-style approaches, directly operating over schedule primitives in TIR and making the automation infrastructure customizable at every layer. It is explicitly described there as TVM’s third-generation automatic scheduling system. 
 
 The key conceptual shift is that MetaSchedule searches over **IR transformation space**, not merely over human-authored templates. This makes it more extensible: when new scheduling primitives such as tensorization or loop partitioning appear, the search system can incorporate them without requiring handcrafted templates for every operator.
 
@@ -334,7 +334,7 @@ Triton’s design goal is therefore not “optimize everything everywhere.” It
 
 > Give Python users a way to write fast custom GPU kernels with near-CUDA performance while hiding most low-level machinery.
 
-The Triton documentation presents exactly this positioning. Its tutorials emphasize short, high-performance kernels for matrix multiplication, fused softmax, fused attention, grouped GEMM, and persistent matmul, all written in a Pythonic DSL that is customizable yet much more concise than raw CUDA. citeturn677223view3turn977380search3turn977380search1turn977380search2
+The Triton documentation presents exactly this positioning. Its tutorials emphasize short, high-performance kernels for matrix multiplication, fused softmax, fused attention, grouped GEMM, and persistent matmul, all written in a Pythonic DSL that is customizable yet much more concise than raw CUDA. 
 
 ### 7.2 Triton’s program model
 
@@ -365,7 +365,7 @@ Conceptually, the flow is:
 4. It caches the compiled binary.
 5. It launches the kernel.
 
-The lecture slides describe this explicitly: analyze the Python function, generate LLVM/PTX code, cache the binary, and launch on the GPU. The same slides emphasize dynamic specialization and caching. These are not incidental features; they are central to why Triton feels usable while still producing fast kernels. fileciteturn2file0
+The lecture slides describe this explicitly: analyze the Python function, generate LLVM/PTX code, cache the binary, and launch on the GPU. The same slides emphasize dynamic specialization and caching. These are not incidental features; they are central to why Triton feels usable while still producing fast kernels. 
 
 ### 7.4 A simple way to read Triton code
 
@@ -394,11 +394,11 @@ This is the crucial abstraction shift. Triton hides thread-level parallelism ins
 
 ### 7.5 Triton for GEMM and attention
 
-Triton’s matrix-multiplication tutorial states the main idea very clearly: a blocked GEMM algorithm is implemented so that each doubly nested block iteration is handled by a dedicated Triton program instance, with explicit pointer arithmetic for block loads and automatic performance tuning through configuration parameters like block sizes and warp counts. The documentation also highlights program reordering for improved L2 hit rate. citeturn677223view3
+Triton’s matrix-multiplication tutorial states the main idea very clearly: a blocked GEMM algorithm is implemented so that each doubly nested block iteration is handled by a dedicated Triton program instance, with explicit pointer arithmetic for block loads and automatic performance tuning through configuration parameters like block sizes and warp counts. The documentation also highlights program reordering for improved L2 hit rate. 
 
-The fused-softmax tutorial shows another key Triton strength: bandwidth-bound operators benefit from fusion because data can be loaded once, processed on-chip, and written back once, instead of materializing multiple intermediate tensors in HBM. citeturn977380search3
+The fused-softmax tutorial shows another key Triton strength: bandwidth-bound operators benefit from fusion because data can be loaded once, processed on-chip, and written back once, instead of materializing multiple intermediate tensors in HBM. 
 
-The fused-attention tutorial and persistent-matmul tutorial show the next level: Triton is expressive enough to implement state-of-the-art attention and more advanced matmul variants, while still exposing autotuning over parameters such as block size, number of warps, and number of stages. citeturn977380search1turn977380search2
+The fused-attention tutorial and persistent-matmul tutorial show the next level: Triton is expressive enough to implement state-of-the-art attention and more advanced matmul variants, while still exposing autotuning over parameters such as block size, number of warps, and number of stages. 
 
 ### 7.6 Why Triton worked so well in the first LLM era
 
@@ -439,13 +439,13 @@ TileLang’s answer is not to abandon abstraction, but to shift abstraction one 
 
 ### 8.2 Tile as a first-class object
 
-TileLang’s documentation explicitly says that a tile is the heart of its programming model: a tile is a shaped portion of data that can be owned and manipulated by a warp, a thread block, or another equivalent parallel unit. In `T.Kernel`, the execution context defines block indices and thread count, and explicit user-facing intrinsics place tile buffers in physical memory spaces such as shared memory. citeturn677223view6turn313977search21
+TileLang’s documentation explicitly says that a tile is the heart of its programming model: a tile is a shaped portion of data that can be owned and manipulated by a warp, a thread block, or another equivalent parallel unit. In `T.Kernel`, the execution context defines block indices and thread count, and explicit user-facing intrinsics place tile buffers in physical memory spaces such as shared memory. 
 
 This is a decisive difference from Triton. In Triton, the user largely writes block-level logic and leaves many scheduling details to the compiler. In TileLang, the tile remains the unit of reasoning, but the user is allowed to explicitly shape more of the schedule around it.
 
 ### 8.3 What TileLang exposes
 
-TileLang is built on top of TVM-style infrastructure and explicitly decouples dataflow from scheduling space. The TileLang paper and documentation emphasize that the scheduling space includes thread binding, layout, tensorization, and pipeline control. citeturn313977search1turn313977search7
+TileLang is built on top of TVM-style infrastructure and explicitly decouples dataflow from scheduling space. The TileLang paper and documentation emphasize that the scheduling space includes thread binding, layout, tensorization, and pipeline control. 
 
 Concretely, TileLang provides user-visible primitives such as:
 
@@ -458,11 +458,11 @@ Concretely, TileLang provides user-visible primitives such as:
 - `T.gemm(...)` and related compute primitives,
 - and layout / swizzle utilities for memory layout control.
 
-The TileLang documentation groups the DSL around exactly these categories: data movement, compute primitives, control helpers, diagnostics, and advanced operations such as memory barriers and warp-group operations. citeturn677223view1turn677223view2
+The TileLang documentation groups the DSL around exactly these categories: data movement, compute primitives, control helpers, diagnostics, and advanced operations such as memory barriers and warp-group operations. 
 
 ### 8.4 The three levels of control
 
-The TileLang matrix-multiplication tutorial describes multiple levels of control. Level 1 is relatively comfortable and high level. Level 2 exposes thread blocks, shared memory, fragments, pipelining, and tile-level intrinsics. Level 3 approaches hand-written CUDA/HIP-style explicitness and is intended for experts who need control over thread-level behavior or even inline PTX-like details. citeturn677223view2
+The TileLang matrix-multiplication tutorial describes multiple levels of control. Level 1 is relatively comfortable and high level. Level 2 exposes thread blocks, shared memory, fragments, pipelining, and tile-level intrinsics. Level 3 approaches hand-written CUDA/HIP-style explicitness and is intended for experts who need control over thread-level behavior or even inline PTX-like details. 
 
 This is important conceptually. TileLang is not simply “Triton with more knobs.” It is attempting to span a wider range of programmability-performance trade-offs.
 
@@ -479,13 +479,13 @@ TileLang therefore allows the user to control:
 - padding and alignment,
 - fragment layout for tensor-core-friendly access.
 
-The TileLang documentation includes dedicated layout and swizzle utilities, including helper layouts for GEMM fragments and linear layouts. It also documents data-movement primitives that explicitly stage data between Global, Shared, and Fragment scopes. citeturn313977search13turn677223view1
+The TileLang documentation includes dedicated layout and swizzle utilities, including helper layouts for GEMM fragments and linear layouts. It also documents data-movement primitives that explicitly stage data between Global, Shared, and Fragment scopes. 
 
 ### 8.6 Pipelining and warp specialization
 
 TileLang also exposes pipeline control much more directly than Triton.
 
-The matmul tutorial explicitly highlights `T.Pipelined(...)` to express software pipelining along the K dimension, and the broader transformation documentation includes warp-specialized producer-consumer passes that rewrite eligible pipelined loops into producer and consumer branches with explicit barrier synchronization. citeturn677223view2turn313977search18
+The matmul tutorial explicitly highlights `T.Pipelined(...)` to express software pipelining along the K dimension, and the broader transformation documentation includes warp-specialized producer-consumer passes that rewrite eligible pipelined loops into producer and consumer branches with explicit barrier synchronization. 
 
 This matters because many high-performance kernels rely on overlapping data movement and compute through carefully structured pipelines. Triton exposes some of this indirectly through parameters such as `num_stages`; TileLang gives the user more direct influence over pipeline depth, buffering, and even warp-specialization structure.
 
@@ -515,7 +515,7 @@ CUDA-L2 is not just another kernel optimizer. It represents a different idea:
 
 > Instead of giving more optimization knobs back to humans, train a system to search the large discrete kernel design space more effectively than humans do.
 
-The CUDA-L2 paper focuses on half-precision GEMM on A100. It combines LLMs and reinforcement learning to optimize HGEMM kernels across 1,000 \((M,N,K)\) configurations and reports beating strong baselines including cuBLAS and cuBLASLt on average in its evaluation setting. citeturn677223view4
+The CUDA-L2 paper focuses on half-precision GEMM on A100. It combines LLMs and reinforcement learning to optimize HGEMM kernels across 1,000 \((M,N,K)\) configurations and reports beating strong baselines including cuBLAS and cuBLASLt on average in its evaluation setting. 
 
 This matters for two reasons.
 
@@ -528,7 +528,7 @@ According to the paper, CUDA-L2 extends CUDA-L1 with several important ingredien
 1. continued pretraining on more diverse CUDA code,
 2. multi-stage RL training moving from broader kernel optimization toward matmul specialization,
 3. richer Nsight Compute profiling metrics in the context,
-4. retrieval-augmented context to inject architectural or optimization knowledge not already present in the foundation model. citeturn677223view4
+4. retrieval-augmented context to inject architectural or optimization knowledge not already present in the foundation model. 
 
 The reward is execution speed. Candidate kernels are compiled, run, and measured on real hardware. The search is therefore grounded in actual execution behavior, not only in static reasoning.
 
@@ -555,37 +555,37 @@ The lecture slides summarize six cases that make this point vividly.
 
 #### Case 1: padding to unlock a better tile
 
-Humans often insist that tile sizes should divide matrix dimensions cleanly. CUDA-L2 found configurations where padding slightly larger dimensions unlocked a much better tile size. In the slide example, a tile size of 160 did not divide 8192 and required only about 1.6% padding overhead, yet yielded much better performance than more “natural” tile sizes like 128 or 256. The paper reports exactly this phenomenon as a key example. citeturn677223view4
+Humans often insist that tile sizes should divide matrix dimensions cleanly. CUDA-L2 found configurations where padding slightly larger dimensions unlocked a much better tile size. In the slide example, a tile size of 160 did not divide 8192 and required only about 1.6% padding overhead, yet yielded much better performance than more “natural” tile sizes like 128 or 256. The paper reports exactly this phenomenon as a key example. 
 
 The lesson is subtle: the local cost of padding may be much smaller than the global gain in utilization and reduced register pressure.
 
 #### Case 2: deep prefetch, not just K+1
 
-Standard kernels often prefetch one tile ahead in the K dimension. CUDA-L2 discovered that deeper lookahead such as K+4 could hide latency better on A100, where async copy latency is high enough that shallow prefetch is not always sufficient. citeturn677223view4
+Standard kernels often prefetch one tile ahead in the K dimension. CUDA-L2 discovered that deeper lookahead such as K+4 could hide latency better on A100, where async copy latency is high enough that shallow prefetch is not always sufficient. 
 
 This is a perfect example of architecture-sensitive optimization. A human may not explore deep prefetch aggressively because the interaction between latency hiding, buffering cost, and shape dependence is hard to reason about manually.
 
 #### Case 3: direct 128-bit register → shared writes
 
-The lecture explains this case especially well. A human often introduces a temporary staging tensor between registers and shared memory to repack or reorder data before the shared-memory write. CUDA-L2 found cases where the intermediate staging step was unnecessary: when shape, alignment, and ordering were already favorable, it used direct wide 128-bit stores from registers to shared memory. This reduced memory instructions and simplified the epilogue pipeline. citeturn677223view4
+The lecture explains this case especially well. A human often introduces a temporary staging tensor between registers and shared memory to repack or reorder data before the shared-memory write. CUDA-L2 found cases where the intermediate staging step was unnecessary: when shape, alignment, and ordering were already favorable, it used direct wide 128-bit stores from registers to shared memory. This reduced memory instructions and simplified the epilogue pipeline. 
 
 This illustrates an important theme: human designs often include conservative staging steps “just in case.” Learned search can discover when those steps are actually redundant.
 
 #### Case 4: double-buffered register fragments, but only when worthwhile
 
-Double buffering is a classic technique: while one buffer feeds MMA compute, another prefetches the next tile. CUDA-L2 learned both *how* to use double buffering and *when not to use it*. The slide explicitly notes that it avoids the optimization when register pressure would overflow. citeturn677223view4
+Double buffering is a classic technique: while one buffer feeds MMA compute, another prefetches the next tile. CUDA-L2 learned both *how* to use double buffering and *when not to use it*. The slide explicitly notes that it avoids the optimization when register pressure would overflow. 
 
 This is exactly the kind of tradeoff humans understand conceptually but find hard to optimize precisely across many shapes: the gain from latency hiding versus the loss from reduced occupancy due to register pressure.
 
 #### Case 5: staggered A/B prefetch scheduling
 
-Rather than always issuing prefetch-A and prefetch-B together before compute, CUDA-L2 found cases where staggering them around compute improved instruction-level parallelism and smoothed memory traffic. citeturn677223view4
+Rather than always issuing prefetch-A and prefetch-B together before compute, CUDA-L2 found cases where staggering them around compute improved instruction-level parallelism and smoothed memory traffic. 
 
 Again, this is the sort of low-level scheduling pattern whose payoff depends on precise instruction mix and warp scheduling behavior.
 
 #### Case 6: shape-specific CTA swizzling
 
-CUDA-L2 also tuned CTA block swizzling differently for small, medium, and large GEMMs to improve L2 reuse. Small GEMMs often used no swizzle, medium ones small-stride swizzles, and large ones large-stride variants. citeturn677223view4
+CUDA-L2 also tuned CTA block swizzling differently for small, medium, and large GEMMs to improve L2 reuse. Small GEMMs often used no swizzle, medium ones small-stride swizzles, and large ones large-stride variants. 
 
 This is a beautiful example of why learned search is attractive: there may be no single “best” swizzle policy. The best choice depends on shape and cache behavior.
 
