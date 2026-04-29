@@ -19,11 +19,11 @@ $$
 
 where:
 
-$$W \in \mathbb{R}^{d \times d}$$
-$$X \in \mathbb{R}^{d \times d}$$
-$$A \in \mathbb{R}^{d \times r}$$
-$$B \in \mathbb{R}^{d \times r}$$
-$$r = 16$$
+$$W \in \mathbb{R}^{d \times d}$$,
+$$X \in \mathbb{R}^{d \times d}$$,
+$$A \in \mathbb{R}^{d \times r}$$,
+$$B \in \mathbb{R}^{d \times r}$$,
+$$r = 16$$.
 
 All tensors are stored as **`.pt` files** and can be loaded with `torch.load`.  
 All hidden evaluation tensors use **`float32`**.
