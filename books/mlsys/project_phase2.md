@@ -412,3 +412,7 @@ Only correct implementations are ranked, and among correct submissions the final
 
 - **70% speedup**
 - **30% agent implementation / engineering methodology**
+
+<script type="text/javascript" async 
+  src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
