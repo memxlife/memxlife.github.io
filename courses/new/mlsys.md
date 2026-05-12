@@ -72,7 +72,7 @@ Throughout the semester, students will work closely with modern GPU and NPU soft
 | 13 | LLM Inference | Lecture | LLM Inference Systems A–Z | |
 | 14 | LLM Inference | Lecture | Advanced Topics in LLM Inference Optimization | |
 | 15 | LLM Inference Infrastructure | In-class Hackathon | Multi-Agent Infrastructure for Automated LLM Inference Infrastructure Development and Optimization on Ascend 384 | Multi-agent infrastructure for LLM inference infrastructure optimization |
-| 16 | LLM Optimization | Lecture | Advanced Topics in LLM Optimization and System Co-Design | Course Project: “黄大年难题” Simplified Challenge Benchmark Competition |
+| 16 | LLM Optimization | Lecture | Advanced Topics in LLM Optimization and System Co-Design | Course Project: “黄大年难题” Challenges |
 | 17 | AI Infrastructure A–Z | Final Presentation | Course Project Presentation and System Demonstration | Final Project Presentation |
 
 ---
