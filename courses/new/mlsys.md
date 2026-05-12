@@ -62,16 +62,16 @@ Throughout the semester, students will work closely with modern GPU and NPU soft
 | 3 | GPU/NPU Architecture | Lecture | NPU Architecture for Machine Learning Systems | Multi-agent infrastructure for automated NPU performance profiling and modeling |
 | 4 | CUDA Programming | Lecture | CUDA Programming Through the Lens of GPU Architecture | |
 | 5 | CUDA Programming | Lecture | CUDA Programming as Hardware–Software Co-Optimization | |
-| 6 | CUDA Programming | In-class Hackathon | Multi-Agent Infrastructure for Automated CUDA Kernel Development and Optimization on GPUs | Multi-agent infrastructure for automated CUDA kernel generation and optimization |
+| 6 | GPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated CUDA Kernel Development and Optimization on GPUs | Multi-agent infrastructure for automated CUDA kernel generation and optimization |
 | 7 | NPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated Kernel Development and Optimization on NPUs | Multi-agent infrastructure for automated NPU kernel development and optimization |
-| 8 | Attention & Kernel Optimization | In-class Hackathon | Multi-Agent Infrastructure for Automated FlashAttention Development and Optimization on NPUs | Multi-agent infrastructure for automated FlashAttention optimization |
+| 8 | NPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated FlashAttention Development and Optimization on NPUs | Multi-agent infrastructure for automated FlashAttention optimization |
 | 9 | LLM Training | Lecture | Data, Tensor, Pipeline, and Expert Parallelism in Large Language Model Training | |
 | 10 | LLM Training | Lecture | Advanced Topics in Large-Scale LLM Training Systems | |
-| 11 | Distributed AI Infrastructure | In-class Hackathon | Multi-Agent Infrastructure for Automated Communication Kernel Development and Optimization on Ascend 384 | Multi-agent infrastructure for communication kernel optimization on Ascend 384 |
-| 12 | Distributed AI Infrastructure | In-class Hackathon | Multi-Agent Infrastructure for Automated Parallel Training Infrastructure Development and Optimization on Ascend 384 | Multi-agent infrastructure for distributed training infrastructure optimization |
+| 11 | LLM Training | In-class Hackathon | Multi-Agent Infrastructure for Automated Communication Kernel Development and Optimization | Multi-agent infrastructure for communication kernel optimization |
+| 12 | LLM Training | In-class Hackathon | Multi-Agent Infrastructure for Automated Parallel Training Infrastructure Development and Optimization | Multi-agent infrastructure for distributed training infrastructure optimization |
 | 13 | LLM Inference | Lecture | LLM Inference Systems A–Z | |
 | 14 | LLM Inference | Lecture | Advanced Topics in LLM Inference Optimization | |
-| 15 | LLM Inference Infrastructure | In-class Hackathon | Multi-Agent Infrastructure for Automated LLM Inference Infrastructure Development and Optimization on Ascend 384 | Multi-agent infrastructure for LLM inference infrastructure optimization |
+| 15 | LLM Inference | In-class Hackathon | Multi-Agent Infrastructure for Automated LLM Inference Infrastructure Development and Optimization | Multi-agent infrastructure for LLM inference infrastructure optimization |
 | 16 | LLM Optimization | Lecture | Advanced Topics in LLM Optimization and System Co-Design | Course Project: “黄大年难题” Challenges |
 | 17 | AI Infrastructure A–Z | Final Presentation | Course Project Presentation and System Demonstration | Final Project Presentation |
 
