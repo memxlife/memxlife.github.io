@@ -1,6 +1,7 @@
 # Machine Learning Systems (ML Sys)
+### Not everyone can become an AI infra. expert, but an expert may come from anyone in 51 hours.
 
-## Fall 2026 @ SLAI -- Not everyone can become an AI infra. expert, but an expert may come from anyone in 51 hours.
+## Fall 2026 @ SLAI 
 
 Machine Learning Systems (ML Sys) studies how to build efficient, scalable, and reliable AI systems through the co-design of algorithms, system software, and hardware. Modern AI systems are fundamentally constrained and enabled by computing infrastructure, including GPUs, NPUs, memory hierarchy, communication systems, compilers, runtime systems, and large-scale distributed computing. This course introduces the full stack of modern AI infrastructure, spanning GPU/NPU architecture, CUDA programming, parallel training, large language model (LLM) inference optimization, and hardware-software co-optimization for large-scale AI systems.
 
@@ -61,7 +62,7 @@ Throughout the semester, students will work closely with modern GPU and NPU soft
 |---|---|---|---|---|---|
 | 1 | Introduction | Lecture | Introduction: The Intellectual Map of Machine Learning Systems | | SHANG, Li |
 | 2 | GPU/NPU Architecture | Lecture | GPU Architecture for Machine Learning Systems | Multi-agent infrastructure for automated GPU performance profiling and modeling | SHANG, Li |
-| 3 | GPU/NPU Architecture | Lecture | NPU Architecture for Machine Learning Systems | Multi-agent infrastructure for automated NPU performance profiling and modeling | TIAN, Kunyang |
+| 3 | GPU/NPU Architecture | Lecture | NPU Architecture for Machine Learning Systems | Multi-agent infrastructure for automated NPU performance profiling and modeling | SHANG, Li|
 | 4 | CUDA Programming | Lecture | CUDA Programming Through the Lens of GPU Architecture | | SHANG, Li |
 | 5 | CUDA Programming | Lecture | CUDA Programming as Hardware–Software Co-Optimization | | SHANG, Li |
 | 6 | GPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated CUDA Kernel Development and Optimization on GPUs | Multi-agent infrastructure for automated CUDA kernel generation and optimization | CHEN, Congliang |
