@@ -55,31 +55,25 @@ Throughout the semester, students will work closely with modern GPU and NPU soft
 
 ## Course Schedule
 
-| Week | Module | Type | Topic | Homework / Project | Instructor |
+| Week | Module | Type | Topic | Homework / Project | Instructor(s) |
 |---|---|---|---|---|---|
-| 1 | Introduction | Lecture | Introduction: The Intellectual Map of Machine Learning Systems | | SHANG |
-| 2 | GPU/NPU Architecture | Lecture | GPU Architecture for Machine Learning Systems | Multi-agent infrastructure for automated GPU performance profiling and modeling | SHANG |
-| 3 | GPU/NPU Architecture | Lecture | NPU Architecture for Machine Learning Systems | Multi-agent infrastructure for automated NPU performance profiling and modeling | TIAN |
-| 4 | CUDA Programming | Lecture | CUDA Programming Through the Lens of GPU Architecture | | SHANG |
-| 5 | CUDA Programming | Lecture | CUDA Programming as Hardware–Software Co-Optimization | | SHANG |
-| 6 | GPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated CUDA Kernel Development and Optimization on GPUs | Multi-agent infrastructure for automated CUDA kernel generation and optimization | CHEN |
-| 7 | NPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated Kernel Development and Optimization on NPUs | Multi-agent infrastructure for automated NPU kernel development and optimization | CHEN |
-| 8 | NPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated FlashAttention Development and Optimization on NPUs | Multi-agent infrastructure for automated FlashAttention optimization | TIAN |
-| 9 | LLM Training | Lecture | Data, Tensor, Pipeline, and Expert Parallelism in Large Language Model Training | | XU |
-| 10 | LLM Training | Lecture | Advanced Topics in Large-Scale LLM Training Systems | | XU |
-| 11 | LLM Training | In-class Hackathon | Multi-Agent Infrastructure for Automated Communication Kernel Development and Optimization | Multi-agent infrastructure for communication kernel optimization | XU |
-| 12 | LLM Training | In-class Hackathon | Multi-Agent Infrastructure for Automated Parallel Training Infrastructure Development and Optimization | Multi-agent infrastructure for distributed training infrastructure optimization | TIAN |
-| 13 | LLM Inference | Lecture | LLM Inference Systems A–Z | | XU |
-| 14 | LLM Inference | Lecture | Advanced Topics in LLM Inference Optimization | | XU |
-| 15 | LLM Inference | In-class Hackathon | Multi-Agent Infrastructure for Automated LLM Inference Infrastructure Development and Optimization | Multi-agent infrastructure for LLM inference infrastructure optimization | TIAN |
-| 16 | LLM Optimization | Lecture | Advanced Topics in LLM Optimization and System Co-Design | Course Project: “黄大年难题” Challenges | SHANG |
+| 1 | Introduction | Lecture | Introduction: The Intellectual Map of Machine Learning Systems | | SHANG, Li |
+| 2 | GPU/NPU Architecture | Lecture | GPU Architecture for Machine Learning Systems | Multi-agent infrastructure for automated GPU performance profiling and modeling | SHANG, Li |
+| 3 | GPU/NPU Architecture | Lecture | NPU Architecture for Machine Learning Systems | Multi-agent infrastructure for automated NPU performance profiling and modeling | TIAN, Kunyang |
+| 4 | CUDA Programming | Lecture | CUDA Programming Through the Lens of GPU Architecture | | SHANG, Li |
+| 5 | CUDA Programming | Lecture | CUDA Programming as Hardware–Software Co-Optimization | | SHANG, Li |
+| 6 | GPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated CUDA Kernel Development and Optimization on GPUs | Multi-agent infrastructure for automated CUDA kernel generation and optimization | CHEN, Chongliang |
+| 7 | NPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated Kernel Development and Optimization on NPUs | Multi-agent infrastructure for automated NPU kernel development and optimization | CHEN, Chongliang |
+| 8 | NPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated FlashAttention Development and Optimization on NPUs | Multi-agent infrastructure for automated FlashAttention optimization | TIAN, Kunyang |
+| 9 | LLM Training | Lecture | Data, Tensor, Pipeline, and Expert Parallelism in Large Language Model Training | | XU, Yuedong |
+| 10 | LLM Training | Lecture | Advanced Topics in Large-Scale LLM Training Systems | | XU, Yuedong |
+| 11 | LLM Training | In-class Hackathon | Multi-Agent Infrastructure for Automated Communication Kernel Development and Optimization | Multi-agent infrastructure for communication kernel optimization | XU, Yuedong |
+| 12 | LLM Training | In-class Hackathon | Multi-Agent Infrastructure for Automated Parallel Training Infrastructure Development and Optimization | Multi-agent infrastructure for distributed training infrastructure optimization | TIAN, Kunyang |
+| 13 | LLM Inference | Lecture | LLM Inference Systems A–Z | | XU, Yuedong |
+| 14 | LLM Inference | Lecture | Advanced Topics in LLM Inference Optimization | | XU, Yuedong |
+| 15 | LLM Inference | In-class Hackathon | Multi-Agent Infrastructure for Automated LLM Inference Infrastructure Development and Optimization | Multi-agent infrastructure for LLM inference infrastructure optimization | TIAN, Kunyang |
+| 16 | LLM Optimization | Lecture | Advanced Topics in LLM Optimization and System Co-Design | Course Project: “黄大年难题” Huang Da Nian Challenges | SHANG, Li |
 | 17 | AI Infrastructure A–Z | Final Presentation | Course Project Presentation and System Demonstration | Final Project Presentation | ALL |
 
-## Instructors
-
-### Professor CHEN, Chongliang 
-### Professor XU, Yuedong 
-### Mr. TIAN, Kuyang 
-### Professor SHANG, Li
 ---
 
