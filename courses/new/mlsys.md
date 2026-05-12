@@ -8,6 +8,14 @@ A central theme of the course is the emerging paradigm of Agentic AI-driven syst
 
 The course places particularly strong emphasis on AI infrastructure development for both GPUs and NPUs, the two dominant hardware platforms driving modern AI computing. Students will work closely with real-world GPU and NPU software stacks, including CUDA programming, communication kernels, distributed training infrastructure, and large-scale inference systems. Through a sequence of in-class hackathons, students will iteratively develop multi-agent infrastructures capable of automatically generating and optimizing AI system components.
 
+机器学习系统（Machine Learning Systems, ML Sys）研究如何通过算法、系统软件与硬件的协同设计，构建高效、可扩展且可靠的人工智能系统。现代 AI 系统的发展，本质上受到计算基础设施的约束与推动，包括 GPU、NPU、存储层次结构、通信系统、编译器、运行时系统以及大规模分布式计算等。本课程将系统介绍现代 AI 基础设施的完整技术栈，涵盖 GPU/NPU 架构、CUDA 编程、并行训练、大语言模型（LLM）推理优化，以及面向大规模 AI 系统的软硬件协同优化。
+
+不同于传统以理论讲授为主的系统课程，ML Sys 是一门高度强调实践、工程能力与课堂 Hackathon 的课程，核心围绕真实世界 AI 基础设施开发展开。课程重点关注现代 GPU 与 NPU 平台上的系统构建、性能分析、优化与迭代调试。学生不仅将学习现代 AI 基础设施“如何工作”，更将亲手构建与优化大规模 AI 训练与推理系统中的核心系统组件。
+
+本课程的一个核心主题，是 Agentic AI 驱动的系统开发新范式。随着大语言模型与多智能体基础设施的发展，AI 正逐渐从“工具”演变为软硬件系统设计过程中的主动参与者。在课程中，学生将学习如何利用基于大语言模型的多智能体系统，实现 profiling、kernel 自动生成、系统优化、调试、实验调度以及 AI 加速器基础设施开发的自动化。
+
+课程特别强调面向 GPU 与 NPU 的 AI 基础设施开发。GPU 与 NPU 是当前推动现代 AI 计算发展的两类核心硬件平台。学生将在课程中深入接触真实世界 GPU 与 NPU 软件栈，包括 CUDA 编程、通信 Kernel、分布式训练基础设施以及大规模推理系统。通过一系列课堂 Hackathon，学生将逐步构建能够自动生成与优化 AI 系统组件的多智能体基础设施。
+
 ## Course Philosophy
 
 > Not everyone can become an AI inference expert, but an expert may come from anyone in 51 hours.
@@ -17,6 +25,12 @@ We believe the future of AI infrastructure development should not be limited to 
 The course is therefore structured around a sequence of lectures and hands-on hackathons. The lectures establish the architectural and system foundations behind modern AI infrastructure, while the hackathons focus on solving real-world engineering problems using innovative large language model-based agentic infrastructures. Students will build systems that automatically profile hardware, analyze performance bottlenecks, generate optimized kernels, develop communication runtimes, and optimize distributed AI infrastructure for modern accelerators such as GPUs and Ascend NPUs.
 
 By the end of the course, students are expected to understand not only how AI infrastructure systems are designed today, but also how future intelligent computing systems may increasingly be generated, optimized, and continuously evolved through human-AI collaborative system development.
+
+我们相信，未来的 AI 基础设施开发不应只属于大型组织中少数高度专业化的工程师。通过系统思维、工程能力与 Agentic AI 方法论的结合，越来越多的学生将能够构建与优化过去需要大型专家团队才能完成的复杂 AI 系统。
+
+因此，本课程围绕“课程讲授 + 实践 Hackathon”两部分展开。课程讲授部分将建立现代 AI 基础设施背后的系统与架构基础；而 Hackathon 部分则聚焦于利用基于大语言模型的 Agentic AI 基础设施，解决真实世界中的工程问题。学生将在课程中构建能够自动完成硬件 profiling、性能瓶颈分析、Kernel 自动生成与优化、通信运行时开发，以及分布式 AI 基础设施优化的系统，并面向 GPU 与昇腾 NPU 等现代 AI 加速器开展实践。
+
+课程结束时，学生不仅需要理解今天的 AI 基础设施系统是如何被设计出来的，更需要理解未来的智能计算系统将如何通过“人类 + AI”的协同系统开发方式，被自动生成、持续优化并不断演化。
 
 # Course Structure
 
