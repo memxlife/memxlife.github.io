@@ -1,5 +1,7 @@
 # Machine Learning Systems (ML Sys)
 
+## Fall 2026 @ SLAI 
+
 Machine Learning Systems (ML Sys) studies how to build efficient, scalable, and reliable AI systems through the co-design of algorithms, system software, and hardware. Modern AI systems are fundamentally constrained and enabled by computing infrastructure, including GPUs, NPUs, memory hierarchy, communication systems, compilers, runtime systems, and large-scale distributed computing. This course introduces the full stack of modern AI infrastructure, spanning GPU/NPU architecture, CUDA programming, parallel training, large language model (LLM) inference optimization, and hardware-software co-optimization for large-scale AI systems.
 
 Unlike traditional lecture-heavy system courses, ML Sys is designed as a highly hands-on, engineering-driven, in-class hackathons centered around real-world AI infrastructure development. The course emphasizes practical system building, performance analysis, optimization, and iterative debugging on modern GPU and NPU platforms. Students will not only learn how modern AI infrastructure works, but also directly build and optimize core system components used in large-scale AI training and inference systems.
