@@ -18,6 +18,27 @@ The course is therefore structured around a sequence of lectures and hands-on ha
 
 By the end of the course, students are expected to understand not only how AI infrastructure systems are designed today, but also how future intelligent computing systems may increasingly be generated, optimized, and continuously evolved through human-AI collaborative system development.
 
+# Course Structure
+
+The course is organized around two tightly integrated components:
+
+1. **System Foundations Lectures**  
+   Students will learn the architectural foundations of modern AI infrastructure, including GPUs, NPUs, CUDA programming, distributed training, communication systems, large-scale inference infrastructure, and hardware–software co-optimization.
+
+2. **Hands-on Agentic AI Hackathons**  
+   Students will develop large language model-based multi-agent infrastructures capable of automating profiling, kernel generation, optimization, debugging, runtime orchestration, and distributed AI system optimization on modern GPU and NPU platforms.
+
+A major emphasis of the course is practical engineering capability. Students are expected to solve real-world AI infrastructure problems through iterative system building, experimentation, profiling, and optimization.
+
+The course progressively moves from:
+- understanding AI hardware architectures,
+- to low-level kernel optimization,
+- to distributed training systems,
+- to large-scale inference infrastructure,
+- and finally toward AI-driven automated infrastructure development.
+
+Throughout the semester, students will work closely with modern GPU and NPU software stacks, including CUDA and Ascend platforms, while developing Agentic AI infrastructures for automated system optimization.
+
 ## Course Schedule
 
 | Week | Module | Type | Topic | Homework / Project |
@@ -42,23 +63,3 @@ By the end of the course, students are expected to understand not only how AI in
 
 ---
 
-# Course Structure
-
-The course is organized around two tightly integrated components:
-
-1. **System Foundations Lectures**  
-   Students will learn the architectural foundations of modern AI infrastructure, including GPUs, NPUs, CUDA programming, distributed training, communication systems, large-scale inference infrastructure, and hardware–software co-optimization.
-
-2. **Hands-on Agentic AI Hackathons**  
-   Students will develop large language model-based multi-agent infrastructures capable of automating profiling, kernel generation, optimization, debugging, runtime orchestration, and distributed AI system optimization on modern GPU and NPU platforms.
-
-A major emphasis of the course is practical engineering capability. Students are expected to solve real-world AI infrastructure problems through iterative system building, experimentation, profiling, and optimization.
-
-The course progressively moves from:
-- understanding AI hardware architectures,
-- to low-level kernel optimization,
-- to distributed training systems,
-- to large-scale inference infrastructure,
-- and finally toward AI-driven automated infrastructure development.
-
-Throughout the semester, students will work closely with modern GPU and NPU software stacks, including CUDA and Ascend platforms, while developing Agentic AI infrastructures for automated system optimization.
