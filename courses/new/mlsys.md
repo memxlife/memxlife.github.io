@@ -1,4 +1,4 @@
-![Banner](banner.jpg)
+![Banner](banner-new.jpg)
 # Machine Learning Systems (ML Sys)
 ### -- Not everyone can become an AI infra. expert, but an expert may come from anyone in 51 hours. 
 
