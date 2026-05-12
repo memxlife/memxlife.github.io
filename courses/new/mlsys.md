@@ -1,6 +1,6 @@
 # Machine Learning Systems (ML Sys)
 
-## Fall 2026 @ SLAI 
+## Fall 2026 @ SLAI -- Not everyone can become an AI infra. expert, but an expert may come from anyone in 51 hours.
 
 Machine Learning Systems (ML Sys) studies how to build efficient, scalable, and reliable AI systems through the co-design of algorithms, system software, and hardware. Modern AI systems are fundamentally constrained and enabled by computing infrastructure, including GPUs, NPUs, memory hierarchy, communication systems, compilers, runtime systems, and large-scale distributed computing. This course introduces the full stack of modern AI infrastructure, spanning GPU/NPU architecture, CUDA programming, parallel training, large language model (LLM) inference optimization, and hardware-software co-optimization for large-scale AI systems.
 
@@ -20,7 +20,7 @@ The course places particularly strong emphasis on AI infrastructure development 
 
 ## Course Philosophy
 
-> Not everyone can become an AI inference expert, but an expert may come from anyone in 51 hours.
+> Not everyone can become an AI infra. expert, but an expert may come from anyone in 51 hours.
 
 We believe the future of AI infrastructure development should not be limited to a small number of highly specialized engineers inside large organizations. By combining system thinking, engineering capability, and Agentic AI methodologies, individual students can increasingly build and optimize sophisticated AI systems that previously required large expert teams.
 
@@ -64,8 +64,8 @@ Throughout the semester, students will work closely with modern GPU and NPU soft
 | 3 | GPU/NPU Architecture | Lecture | NPU Architecture for Machine Learning Systems | Multi-agent infrastructure for automated NPU performance profiling and modeling | TIAN, Kunyang |
 | 4 | CUDA Programming | Lecture | CUDA Programming Through the Lens of GPU Architecture | | SHANG, Li |
 | 5 | CUDA Programming | Lecture | CUDA Programming as Hardware–Software Co-Optimization | | SHANG, Li |
-| 6 | GPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated CUDA Kernel Development and Optimization on GPUs | Multi-agent infrastructure for automated CUDA kernel generation and optimization | CHEN, Chongliang |
-| 7 | NPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated Kernel Development and Optimization on NPUs | Multi-agent infrastructure for automated NPU kernel development and optimization | CHEN, Chongliang |
+| 6 | GPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated CUDA Kernel Development and Optimization on GPUs | Multi-agent infrastructure for automated CUDA kernel generation and optimization | CHEN, Congliang |
+| 7 | NPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated Kernel Development and Optimization on NPUs | Multi-agent infrastructure for automated NPU kernel development and optimization | CHEN, Congliang |
 | 8 | NPU Kernel Development | In-class Hackathon | Multi-Agent Infrastructure for Automated FlashAttention Development and Optimization on NPUs | Multi-agent infrastructure for automated FlashAttention optimization | TIAN, Kunyang |
 | 9 | LLM Training | Lecture | Data, Tensor, Pipeline, and Expert Parallelism in Large Language Model Training | | XU, Yuedong |
 | 10 | LLM Training | Lecture | Advanced Topics in Large-Scale LLM Training Systems | | XU, Yuedong |
@@ -73,8 +73,8 @@ Throughout the semester, students will work closely with modern GPU and NPU soft
 | 12 | LLM Training | In-class Hackathon | Multi-Agent Infrastructure for Automated Parallel Training Infrastructure Development and Optimization | Multi-agent infrastructure for distributed training infrastructure optimization | TIAN, Kunyang |
 | 13 | LLM Inference | Lecture | LLM Inference Systems A–Z | | XU, Yuedong |
 | 14 | LLM Inference | Lecture | Advanced Topics in LLM Inference Optimization | | XU, Yuedong |
-| 15 | LLM Inference | In-class Hackathon | Multi-Agent Infrastructure for Automated LLM Inference Infrastructure Development and Optimization | Multi-agent infrastructure for LLM inference infrastructure optimization | TIAN, Kunyang |
-| 16 | LLM Optimization | Lecture | Advanced Topics in LLM Optimization and System Co-Design | Course Project: “黄大年难题” Huang Da Nian Challenges | SHANG, Li |
+| 15 | LLM Inference | In-class Hackathon | Multi-Agent Infrastructure for Automated LLM Inference Infrastructure Development and Optimization | Multi-agent infrastructure for LLM inference infrastructure optimization | CHEN, Congliang |
+| 16 | LLM Optimization | Lecture | Advanced Topics in LLM Optimization and System Co-Design | Course Project: “黄大年难题” Huang Da Nian Challenges | SUN, Ruoyu |
 | 17 | AI Infrastructure A–Z | Final Presentation | Course Project Presentation and System Demonstration | Final Project Presentation | ALL |
 
 ---
