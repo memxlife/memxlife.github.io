@@ -1,10 +1,14 @@
 # Phase 3: Automated LLM Inference Runtime
 
+<script type="text/javascript" async
+  src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
+
 Start date: May 26, 2026  
 First required submission: within 2 weeks after the start date  
 Maximum submissions: 2 submissions within 3 weeks after the start date
 
-In this phase, you will build an automated LLM inference runtime that can load a decoder-only model from the provided configuration and weights, maintain request state, and execute both prefill and decode efficiently. The runtime will be evaluated as a black box: we will compare its logits against a reference implementation for correctness, then drive it with serving-style request traces to measure throughput and memory behavior.
+In this phase, you will build an agent that automatically generates an LLM inference runtime. The generated runtime must load a decoder-only model from the provided configuration and weights, maintain request state, and execute both prefill and decode efficiently. The runtime will be evaluated as a black box: we will compare its logits against a reference implementation for correctness, then drive it with serving-style request traces to measure throughput and memory behavior.
 
 Correct inference is a hard requirement. A submission that does not pass correctness checking will not receive throughput credit.
 
@@ -12,7 +16,7 @@ Correct inference is a hard requirement. A submission that does not pass correct
 
 ## 1. Task
 
-Your task is to implement an inference runtime for a small LLaMA-like decoder-only model. The runtime must support:
+Your task is to implement an agent that generates an inference runtime for a small LLaMA-like decoder-only model. The generated runtime must support:
 
 - loading model weights from a provided weight directory
 - constructing runtime behavior from `model_config.json`
@@ -28,16 +32,17 @@ You should design your runtime to work across different batch sizes, prompt leng
 
 ## 2. What You Must Submit
 
-Your submission must contain at least:
+Your submission must contain:
 
 - `run.sh`
+- your agent implementation and any files required by the agent
+
+After `run.sh` finishes, your agent must generate:
+
 - `workspace/engine.py`
-
-During execution, your system must maintain a log file:
-
 - `workspace/results.log`
 
-The log file is not used for scoring. It is provided so that you can inspect failures after submission, such as preparation errors, compilation errors, or local self-test failures.
+Do not treat `workspace/engine.py` as a manually submitted static solution. It is the output artifact produced by your agent. The log file is not used for scoring. It is provided so that you can inspect failures after submission, such as agent errors, code generation errors, compilation errors, or local self-test failures.
 
 ### Submission Contract
 
@@ -55,7 +60,7 @@ workspace/engine.py
 
 from the same directory and run the official correctness and throughput harness.
 
-If your runtime needs to compile custom extensions, prepare generated files, or run local self-tests, do that inside `run.sh`. The evaluator will not use self-reported results from your log file; it will directly call your runtime.
+Your `run.sh` should invoke your agent. If the generated runtime needs custom extensions, generated files, or local self-tests, prepare them during this process. The evaluator will not use self-reported results from your log file; it will directly call the generated runtime.
 
 ---
 
@@ -320,7 +325,7 @@ PYTHON=/path/to/python-with-torch bash scripts/run_public_tests.sh
 
 ## 10. Baseline
 
-The public `workspace/engine.py` is a minimal PyTorch baseline. It stores the full token sequence for each request and recomputes the full sequence on every decode call. This is slow, but it demonstrates the required interface and correct request semantics.
+The public skeleton already contains a sample generated artifact at `workspace/engine.py` so that you can run the evaluator immediately. This file is a minimal PyTorch baseline. It stores the full token sequence for each request and recomputes the full sequence on every decode call. This is slow, but it demonstrates the required interface and correct request semantics. In your own submission, your agent must generate `workspace/engine.py` after `run.sh` starts.
 
 Important optimization directions include:
 
@@ -335,12 +340,13 @@ Important optimization directions include:
 
 ## 11. Summary
 
-In this project, you are building an automated inference runtime for a decoder-only language model.
+In this project, you are building an agent that automatically generates an inference runtime for a decoder-only language model.
 
-Your runtime should:
+Your submission should:
 
-- run from `bash run.sh`
-- provide `workspace/engine.py`
+- provide `run.sh`
+- invoke your agent from `run.sh`
+- generate `workspace/engine.py`
 - implement `create_engine(...)`
 - support `prefill(...)`, `decode(...)`, and `remove(...)`
 - maintain independent request state using request IDs
@@ -351,8 +357,3 @@ Only correct implementations receive throughput credit. Among correct submission
 
 - 70% throughput
 - 30% agent implementation / engineering methodology
-
-<script type="text/javascript" async
-  src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
-</script>
-
