@@ -912,3 +912,7 @@ That is the efficiency moat. It is not just lower training cost, and it is not j
 - s1: [arXiv:2501.19393](https://arxiv.org/abs/2501.19393)
 - OpenAI o3/o4-mini tool-and-visual reasoning reference: [OpenAI announcement](https://openai.com/index/introducing-o3-and-o4-mini/)
 - Reuters-reported V4-Pro pricing context: [Investing.com Reuters republication](https://www.investing.com/news/stock-market-news/chinas-deepseek-cuts-ai-model-price-by-75-in-challenge-to-global-rivals-432SI-4102398)
+
+<script type="text/javascript" async
+  src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>

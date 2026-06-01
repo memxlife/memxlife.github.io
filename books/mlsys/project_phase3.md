@@ -357,3 +357,7 @@ Only correct implementations receive throughput credit. Among correct submission
 
 - 70% throughput
 - 30% agent implementation / engineering methodology
+
+<script type="text/javascript" async
+  src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
+</script>
