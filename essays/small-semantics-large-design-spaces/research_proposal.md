@@ -60,11 +60,11 @@ $$
 \begin{aligned}
 \text{tensor computation}
 &\rightarrow \text{numerical choices}
-\rightarrow \text{graph rewrites}
-\rightarrow \text{tiling} \\
-&\rightarrow \text{layout and placement}
-\rightarrow \text{parallel schedule}
-\rightarrow \text{communication} \\
+\rightarrow \text{graph rewrites}\\
+&\rightarrow \text{tiling}
+\rightarrow \text{layout and placement}\\
+&\rightarrow \text{parallel schedule}
+\rightarrow \text{communication}\\
 &\rightarrow \text{machine resources}
 \rightarrow \text{architectural actions}
 \rightarrow \text{implementation}.
@@ -112,9 +112,12 @@ control. The relevant comparison is:
 
 $$
 \boxed{
-\text{general-purpose ISA contract that abstracts over microarchitecture}
-\quad\text{versus}\quad
+\begin{array}{c}
+\text{general-purpose ISA contract}\\
+\text{that abstracts over microarchitecture}\\[3pt]
+\text{versus}\\[3pt]
 \text{explicit timed tile-resource contract}
+\end{array}
 }
 $$
 
@@ -138,16 +141,18 @@ fusion, layout, placement, buffering, pipelining, routing, and machine
 parameters:
 
 $$
+\begin{aligned}
 \mathcal Z_K(t)
-\subseteq
+\subseteq{}&
 \mathcal T_t
 \times\mathcal F_t
 \times\mathcal L_t
-\times\mathcal P_t
-\times\mathcal B_t
+\times\mathcal P_t\\
+&{}\times\mathcal B_t
 \times\mathcal S_t
 \times\mathcal R_t
 \times\mathcal H_t.
+\end{aligned}
 $$
 
 The scientific opportunity is not to make optimization easy. It is to make
@@ -172,11 +177,11 @@ The proposed architecture is:
 
 $$
 \boxed{
-\text{untrusted high-capacity proposer}
-+
-\text{fixed four-primitive semantic kernel}
-+
-\text{deterministic checker}
+\begin{array}{rcl}
+\text{search} &:& \text{untrusted high-capacity proposer}\\
+\text{meaning} &:& \text{fixed four-primitive semantic kernel}\\
+\text{acceptance} &:& \text{deterministic checker}
+\end{array}
 }
 $$
 
@@ -262,10 +267,11 @@ $$
 \left\{
 \operatorname{Can}(e)
 \;\middle|\;
-e\in\operatorname{Expr}(K,t,B),
-\;
+\begin{array}{l}
+e\in\operatorname{Expr}(K,t,B),\\
 \exists\pi:
 \operatorname{Check}_K(e,\pi)=\operatorname{accept}
+\end{array}
 \right\}.
 $$
 
@@ -281,9 +287,10 @@ $$
 \left\{
 \operatorname{Can}(u)
 \;\middle|\;
-u\in U(t),
-\;
+\begin{array}{l}
+u\in U(t),\\
 \operatorname{Valid}_U(u)
+\end{array}
 \right\}.
 $$
 
@@ -336,17 +343,17 @@ For an agent-produced checked design \(\widehat c_t\), the total gap separates
 exactly:
 
 $$
-\underbrace{
+\begin{aligned}
 J_t(\widehat c_t)-J_U^*(t)
-}_{\text{total gap}}
-=
+={}&
 \underbrace{
 J_t(\widehat c_t)-J_K^*(t,B)
-}_{\text{agent search regret}}
-+
+}_{\text{agent search gap}}\\
+&+
 \underbrace{
 J_K^*(t,B)-J_U^*(t)
-}_{\text{representation regret}}.
+}_{\text{representation gap}}.
+\end{aligned}
 $$
 
 This decomposition prevents two wrong conclusions. Poor agent search must not
@@ -394,10 +401,12 @@ $$
 C(K)
 =
 \left(
+\begin{array}{c}
 \left|\operatorname{Prim}(K)\right|,
-\left|\operatorname{Rule}(K)\right|,
+\left|\operatorname{Rule}(K)\right|,\\
 \left|\operatorname{Assumption}(K)\right|,
 \operatorname{TCBBytes}(K)
+\end{array}
 \right).
 $$
 
@@ -415,10 +424,12 @@ $$
 C_H(H)
 =
 \left(
+\begin{array}{c}
 |R_H|,
-|\operatorname{Routes}_H|,
+|\operatorname{Routes}_H|,\\
 |\operatorname{TableRows}_H|,
 |\operatorname{DemandForms}_H|
+\end{array}
 \right).
 $$
 
@@ -435,7 +446,33 @@ order-or-overlap relation. It removes identifier aliases, exact start-cycle
 offsets, and cost values. Thus uniform delays and inserted idle time do not
 create new classes.
 
-Define the full and near-optimal richness:
+Define the full design set and the near-optimal design set:
+
+$$
+\begin{aligned}
+\mathcal D_K^{\mathrm{all}}(t,B)
+&=
+\left\{
+\operatorname{RichCan}(c)
+\mid
+c\in\mathcal M_K(t,B)
+\right\},\\
+\mathcal D_K^{(\eta)}(t,B)
+&=
+\left\{
+\operatorname{RichCan}(c)
+\;\middle|\;
+\begin{array}{l}
+c\in\mathcal M_K(t,B),
+\\
+J_t(c)\le(1+\eta)J_K^*(t,B)
+\end{array}
+\right\}
+.
+\end{aligned}
+$$
+
+Their richness is:
 
 $$
 \begin{aligned}
@@ -443,23 +480,13 @@ S_K^{\mathrm{all}}(t,B)
 &=
 \log_2
 \left|
-\left\{
-\operatorname{RichCan}(c)
-\mid
-c\in\mathcal M_K(t,B)
-\right\}
+\mathcal D_K^{\mathrm{all}}(t,B)
 \right|,\\
 S_K^{(\eta)}(t,B)
 &=
 \log_2
 \left|
-\left\{
-\operatorname{RichCan}(c)
-\;\middle|\;
-c\in\mathcal M_K(t,B),
-\;
-J_t(c)\le(1+\eta)J_K^*(t,B)
-\right\}
+\mathcal D_K^{(\eta)}(t,B)
 \right|.
 \end{aligned}
 $$
@@ -495,9 +522,12 @@ automatically part of functional equivalence.
 formal validity judgment:
 
 $$
-\operatorname{Check}_{\mathcal B_0,H}(z,\pi)=\operatorname{accept}
-\Rightarrow
+\begin{aligned}
+&\operatorname{Check}_{\mathcal B_0,H}(z,\pi)
+=\operatorname{accept}\\
+&\qquad\Longrightarrow
 \operatorname{Valid}_{\mathcal B_0,H}(z).
+\end{aligned}
 $$
 
 This implication must be proved from the semantics. Passing tests or detecting
@@ -552,13 +582,14 @@ This history gives a constructive pattern:
 
 $$
 \boxed{
+\begin{array}{cc}
 \text{primitives}
-+
-\text{composition rules}
-+
+&
+\text{composition rules}\\[3pt]
 \text{interpretation rules}
-+
+&
 \text{physical assumptions}
+\end{array}
 }
 $$
 
@@ -707,16 +738,11 @@ Model Zero is described by a frozen manifest:
 $$
 \mathcal B_0=
 \left(
-\mathcal S_0,
-V_0,
-T_{\max},
-N_{\max},
-\mathcal H_{\mathrm{coop}},
-\mathcal H_{\mathrm{systolic}},
-U_0,
-K_0,
-G_0,
-\mathcal E_0
+\begin{array}{c}
+\mathcal S_0,\;V_0,\;T_{\max},\;N_{\max},\\
+\mathcal H_{\mathrm{coop}},\;\mathcal H_{\mathrm{systolic}},\\
+U_0,\;K_0,\;G_0,\;\mathcal E_0
+\end{array}
 \right).
 $$
 
@@ -792,20 +818,21 @@ A legal reference record \(u\in U_0^{\mathrm{legal}}\) and model expression
 every registered input:
 
 $$
+\begin{aligned}
 u\equiv_{\mathrm{fun}} g
-\quad\Longleftrightarrow\quad
-\operatorname{Valid}_{U_0}(u)
-\land
-\operatorname{Valid}_{G_0}(g)
-\land
-\operatorname{shape}(u)=\operatorname{shape}(g)
-\land
-\left(
-\forall x\in\operatorname{Inputs}(u;V_0),\;
+\quad\Longleftrightarrow\quad{}&
+\operatorname{Valid}_{U_0}(u)\\
+&\land
+\operatorname{Valid}_{G_0}(g)\\
+&\land
+\operatorname{shape}(u)=\operatorname{shape}(g)\\
+&\land
+\forall x\in\operatorname{Inputs}(u;V_0):\\
+&\qquad
 \operatorname{Run}_{U_0}(u,x)
 =
-\operatorname{Run}_{G_0}(g,x)
-\right).
+\operatorname{Run}_{G_0}(g,x).
+\end{aligned}
 $$
 
 Functional equivalence is not implementation identity. Richness and
@@ -816,18 +843,20 @@ $$
 \operatorname{Can}(c)
 =
 \left(
-\operatorname{task},
-\operatorname{machine},
-\operatorname{valueGraph},
-\operatorname{actionGraph},
-\operatorname{opShape},
-\lambda_A,
-\lambda_V,
-\rho,
-s,
-E,
-K_{\mathrm{exact}},
+\begin{array}{c}
+\operatorname{task},\;
+\operatorname{machine},\\
+\operatorname{valueGraph},\;
+\operatorname{actionGraph},\\
+\operatorname{opShape},\;
+\lambda_A,\;
+\lambda_V,\;
+\rho,\\
+s,\;
+E,\;
+K_{\mathrm{exact}},\;
 \operatorname{outputNF}
+\end{array}
 \right).
 $$
 
@@ -842,9 +871,13 @@ normalized away. No other difference is discarded.
 The canonicalizers must satisfy:
 
 $$
-\operatorname{Can}(c_1)=\operatorname{Can}(c_2)
-\quad\Longleftrightarrow\quad
-c_1\equiv_{\mathrm{design}}c_2,
+\begin{aligned}
+\operatorname{Can}(c_1)
+&=
+\operatorname{Can}(c_2)\\
+&\Longleftrightarrow
+c_1\equiv_{\mathrm{design}}c_2.
+\end{aligned}
 $$
 
 where \(\equiv_{\mathrm{design}}\) means equality of every field above modulo
@@ -852,19 +885,20 @@ only the registered aliases. They must also preserve validity and every
 objective computed from the exact structural vector:
 
 $$
+\begin{aligned}
 \operatorname{Valid}(c)
-\Rightarrow
+&\Rightarrow
 \operatorname{Valid}_{\mathrm{Can}}
 \left(
 \operatorname{Can}(c)
-\right),
-\qquad
+\right),\\
 J_t(c)
-=
+&=
 J_t
 \left(
 \operatorname{Can}(c)
 \right).
+\end{aligned}
 $$
 
 These properties are proved for the \(U_0\) and \(G_0\) normalizers. Each
@@ -873,17 +907,19 @@ kernel-induced design carries a matching reference record and certificate
 records:
 
 $$
-\operatorname{EqCheck}(u,g,\pi_{\mathrm{eq}})
+\begin{aligned}
+&\operatorname{EqCheck}(u,g,\pi_{\mathrm{eq}})
 =
-\operatorname{accept}
-\quad\Longleftrightarrow\quad
+\operatorname{accept}\\
+&\quad\Longleftrightarrow\quad
 \operatorname{Valid}_{U_0}(u)
 \land
-\operatorname{Valid}_{G_0}(g)
-\land
+\operatorname{Valid}_{G_0}(g)\\
+&\qquad\land
 \operatorname{Can}_{U_0}(u)
 =
 \operatorname{Can}_{G_0}(g).
+\end{aligned}
 $$
 
 Random or exhaustive input testing is used to find mistakes, but it is not
@@ -935,7 +971,10 @@ $$
 L_0 &: \text{mathematical matrix-multiplication contract},\\
 L_1 &: \text{tiled, single-assignment value graph},\\
 L_2 &: \text{placement, routes, and static start times},\\
-L_3 &: \text{timed architectural actions expanded from the machine contract}.
+L_3 &: \begin{array}{l}
+\text{timed architectural actions}\\
+\text{expanded from the machine contract}.
+\end{array}
 \end{aligned}
 $$
 
@@ -966,8 +1005,11 @@ For a selected machine \(H\), the proof model is:
 $$
 M_0(\mathcal B_0,H)=
 \left(
-Q,A,R_H,\longrightarrow_H,\operatorname{Run},
+\begin{array}{c}
+Q,\;A,\;R_H,\;\longrightarrow_H,\\
+\operatorname{Run},\;
 \operatorname{Valid}_{\mathcal B_0,H}
+\end{array}
 \right),
 $$
 
@@ -1012,12 +1054,14 @@ action contains:
 $$
 a=
 \left(
-\operatorname{id},
-\operatorname{op},
-\operatorname{inputs},
-\operatorname{output},
-\operatorname{pred},
+\begin{array}{c}
+\operatorname{id},\;
+\operatorname{op},\;
+\operatorname{inputs},\\
+\operatorname{output},\;
+\operatorname{pred},\;
 \operatorname{shape}
+\end{array}
 \right).
 $$
 
@@ -1027,10 +1071,12 @@ $$
 \operatorname{Prim}(K_0)
 =
 \left\{
-\operatorname{zero},
-\operatorname{copy},
-\operatorname{transfer},
+\begin{array}{c}
+\operatorname{zero},\;
+\operatorname{copy},\\
+\operatorname{transfer},\;
 \operatorname{tile\_mac}
+\end{array}
 \right\}.
 $$
 
@@ -1060,13 +1106,21 @@ Copy preserves a value within one location. Transfer preserves the value across
 two locations and must occupy every resource on its declared route.
 
 The machine contract expands an action through one fixed table lookup and one
-fixed route-fold rule. Expansion is a total option-valued function:
+fixed route-fold rule. Write:
 
 $$
+\operatorname{Expand}_H(a)
+:=
 \operatorname{Expand}
 \left(
 H,a,\lambda_A(a),\rho(a)
-\right)
+\right).
+$$
+
+This shorthand denotes a total option-valued function:
+
+$$
+\operatorname{Expand}_H(a)
 \in
 \operatorname{Option}
 \left(
@@ -1074,26 +1128,32 @@ H,a,\lambda_A(a),\rho(a)
 \right),
 $$
 
-with:
+The table key and lookup are:
 
 $$
-\operatorname{Expand}
+\begin{aligned}
+\operatorname{key}_H(a)
+&=
 \left(
-H,a,\lambda_A(a),\rho(a)
-\right)
-=
+\begin{array}{c}
+\operatorname{op}(a),\;
+\operatorname{shape}(a),\\
+\lambda_A(a),\;
+\operatorname{routeClass}(\rho(a))
+\end{array}
+\right),\\
+\operatorname{Expand}_H(a)
+&=
 H.\operatorname{table}
 \left[
-\operatorname{op}(a),
-\operatorname{shape}(a),
-\lambda_A(a),
-\operatorname{routeClass}(\rho(a))
-\right]
-=
+\operatorname{key}_H(a)
+\right]\\
+&=
 \operatorname{Some}
 \left(
 d_a,u_a,b_a
-\right)
+\right).
+\end{aligned}
 $$
 
 where \(d_a\) is the exact abstract duration, \(u_a(r,\delta)\) is a finite
@@ -1108,18 +1168,20 @@ traversed link. A missing row or illegal route returns
 The whole candidate elaborates only when every action succeeds:
 
 $$
+\begin{aligned}
 \operatorname{Elab}_H(z)
-=
-\operatorname{Some}(E)
-\quad\Longleftrightarrow\quad
+&=
+\operatorname{Some}(E)\\
+&\Longleftrightarrow
 \forall a\in A_G,\;
-\exists d_a,u_a,b_a:
-\operatorname{Expand}
-\left(H,a,\lambda_A(a),\rho(a)\right)
+\exists d_a,u_a,b_a:\\
+&
+\operatorname{Expand}_H(a)
 =
-\operatorname{Some}(d_a,u_a,b_a)
-\land
+\operatorname{Some}(d_a,u_a,b_a)\\
+&\land
 E(a)=(d_a,u_a,b_a).
+\end{aligned}
 $$
 
 All later uses of \(d_a\), \(u_a\), and \(b_a\) are bound by such an
@@ -1180,12 +1242,15 @@ $$
 Resource use is legal exactly when:
 
 $$
-\forall r\in R_H,\;
-\forall t\in\{0,\ldots,T_{\max}-1\}:
-\quad
+\begin{aligned}
+&\forall r\in R_H,\;
+\forall t\in\{0,\ldots,T_{\max}-1\}:\\
+&\qquad
 \sum_{\substack{a\\s_a\le t<e_a}}
 u_a(r,t-s_a)
-\le \operatorname{CapToken}_H(r).
+\le
+\operatorname{CapToken}_H(r).
+\end{aligned}
 $$
 
 Compute units, ports, banks, links, pipeline issue slots, and transfer engines
@@ -1204,11 +1269,13 @@ $$
 =
 \max
 \left(
-\{e_a\mid v\in\operatorname{inputs}(a)\}
-\cup
-\{T_{\mathrm{obs}}\mid v\text{ is a final output}\}
-\cup
+\begin{array}{c}
+\{e_a\mid v\in\operatorname{inputs}(a)\}\\
+\cup\;
+\{T_{\mathrm{obs}}\mid v\text{ is a final output}\}\\
+\cup\;
 \{\operatorname{avail}(v)\}
+\end{array}
 \right).
 $$
 
@@ -1217,12 +1284,15 @@ Its live interval is
 \(\lambda_V(v)=(m_v,[lo_v,hi_v))\), then:
 
 $$
-\forall m,\;
-\forall t\in\{0,\ldots,T_{\max}\}:
-\quad
+\begin{aligned}
+&\forall m,\;
+\forall t\in\{0,\ldots,T_{\max}\}:\\
+&\qquad
 \sum_{\substack{v:m_v=m\\t\in I_v}}
 \operatorname{size}(v)
-\le \operatorname{CapBytes}_H(m).
+\le
+\operatorname{CapBytes}_H(m).
+\end{aligned}
 $$
 
 For every value,
@@ -1234,13 +1304,16 @@ storage, or resource checks fail. Otherwise, it executes the two cycle phases
 above and returns \(\operatorname{Normal}(o)\). Define:
 
 $$
-\operatorname{AllRunsNormal}_{\mathcal B_0,H}(z)
-\quad\Longleftrightarrow\quad
+\begin{aligned}
+&\operatorname{AllRunsNormal}_{\mathcal B_0,H}(z)\\
+&\quad\Longleftrightarrow\quad
 \forall x\in\mathcal I(P),\;
-\exists o:
+\exists o:\\
+&\qquad
 \operatorname{Run}_{\mathcal B_0,H}(z,x)
 =
 \operatorname{Normal}(o).
+\end{aligned}
 $$
 
 The semantic validity judgment binds a successful elaboration before using any
@@ -1252,17 +1325,16 @@ $$
 \equiv{}&
 \exists E:\;
 \operatorname{Elab}_H(z)=\operatorname{Some}(E)\\
-&\land
-\operatorname{Bounded}(z)
-\land \operatorname{WellTyped}(G)
+&\land \operatorname{Bounded}(z)\\
+&\land \operatorname{WellTyped}(G)
 \land \operatorname{SingleAssignment}(G)\\
 &\land \operatorname{Acyclic}(G)
 \land \operatorname{ReductionComplete}(G)\\
 &\land \operatorname{ValueRefines}(G,P,E)
-\land \operatorname{TemporalLegal}(z,E)
-\land \operatorname{ResourceLegal}(z,E)\\
-&\land \operatorname{StorageLegal}(z,E)
-\land \operatorname{RouteLegal}(z,E)
+\land \operatorname{TemporalLegal}(z,E)\\
+&\land \operatorname{ResourceLegal}(z,E)
+\land \operatorname{StorageLegal}(z,E)\\
+&\land \operatorname{RouteLegal}(z,E)
 \land \operatorname{Complete}(z,E)\\
 &\land \operatorname{AllRunsNormal}_{\mathcal B_0,H}(z).
 \end{aligned}
@@ -1333,21 +1405,23 @@ $$
 The certificate checker must satisfy:
 
 $$
-\operatorname{Check}_i(P_i,P_{i+1},\pi_i)
-=\operatorname{accept}
-\Rightarrow
-P_{i+1}\sqsubseteq_{i+1,i} P_i.
+\begin{aligned}
+&\operatorname{Check}_i(P_i,P_{i+1},\pi_i)
+=\operatorname{accept}\\
+&\qquad\Longrightarrow
+P_{i+1}\sqsubseteq_{i+1,i}P_i.
+\end{aligned}
 $$
 
 For three levels, vertical refinement composes when the projections compose:
 
 $$
 \begin{aligned}
-P_2\sqsubseteq_{21}P_1
-\land P_1\sqsubseteq_{10}P_0
-\land
-\alpha_{10}\circ\alpha_{21}=\alpha_{20}
-\;\Rightarrow\;
+&P_2\sqsubseteq_{21}P_1
+\land P_1\sqsubseteq_{10}P_0\\
+&\land
+\alpha_{10}\circ\alpha_{21}=\alpha_{20}\\
+&\qquad\Longrightarrow
 P_2\sqsubseteq_{20}P_0.
 \end{aligned}
 $$
@@ -1371,38 +1445,32 @@ occupancy. A source component \(P\) also declares
 \(\operatorname{Guarantee}(P,p)\), the values it may produce at output port
 \(p\). Each component refinement carries an interface projection \(\beta_k\)
 from \(Q_k\) ports and values to \(P_k\) ports and values. Let \(\omega_P\)
-wire source ports and \(\omega_Q\) wire their lower-level counterparts. For
-Model Zero:
+wire source ports and \(\omega_Q\) wire their lower-level counterparts. Use
+the abbreviations:
 
 $$
-\begin{aligned}
-\operatorname{Compat}_H
-\left(
-Q_1,Q_2;P_1,P_2,\beta_1,\beta_2,\omega_Q,\omega_P
-\right)
-\equiv{}&
- \operatorname{InterfaceCompatible}
- \left(Q_1,Q_2,P_1,P_2,\omega_Q,\omega_P\right)\\
-&\land
-\operatorname{WireSound}
-\left(\omega_Q,\omega_P,\beta_1,\beta_2\right)\\
-&\land
-\operatorname{ContractCompatible}
-\left(P_1,P_2,\omega_P\right)\\
-&\land W_{Q_1}\cap W_{Q_2}=\varnothing\\
-&\land \operatorname{Acyclic}(G_1\cup_{\omega_Q} G_2)\\
-&\land
-\operatorname{CombinedTemporalLegal}_H(Q_1,Q_2,\omega_Q)\\
-&\land
-\operatorname{CombinedRouteLegal}_H(Q_1,Q_2,\omega_Q)\\
-&\land
-\forall r,t:
-D_{Q_1}(r,t)+D_{Q_2}(r,t)
-\le\operatorname{CapToken}_H(r)\\
-&\land
-\operatorname{CombinedStorageLegal}_H(Q_1,Q_2,\omega_Q).
-\end{aligned}
+\mathbf Q=(Q_1,Q_2),
+\qquad
+\mathbf P=(P_1,P_2),
+\qquad
+\boldsymbol\beta=(\beta_1,\beta_2).
 $$
+
+For Model Zero,
+\(\operatorname{Compat}_H
+(\mathbf Q;\mathbf P,\boldsymbol\beta,\omega_Q,\omega_P)\)
+holds exactly when:
+
+- the two source and lower interfaces are type- and shape-compatible;
+- \(\operatorname{WireSound}
+  (\omega_Q,\omega_P,\boldsymbol\beta)\) holds;
+- \(\operatorname{ContractCompatible}(P_1,P_2,\omega_P)\) holds;
+- \(W_{Q_1}\cap W_{Q_2}=\varnothing\);
+- \(G_1\cup_{\omega_Q}G_2\) is acyclic;
+- the combined timing, routes, and storage are legal; and
+- for every resource \(r\) and cycle \(t\),
+  \(D_{Q_1}(r,t)+D_{Q_2}(r,t)
+  \le\operatorname{CapToken}_H(r)\).
 
 For every source wire from output port \(p\) to input port \(q\),
 \(\operatorname{ContractCompatible}\) requires:
@@ -1425,15 +1493,15 @@ connected internal ports are hidden. The horizontal theorem to prove is:
 
 $$
 \begin{aligned}
-Q_1\sqsubseteq_{\beta_1} P_1
+&Q_1\sqsubseteq_{\beta_1}P_1
 \land
-Q_2\sqsubseteq_{\beta_2} P_2
-\land
+Q_2\sqsubseteq_{\beta_2}P_2\\
+&\land
 \operatorname{Compat}_H
 \left(
-Q_1,Q_2;P_1,P_2,\beta_1,\beta_2,\omega_Q,\omega_P
-\right)
-\;\Rightarrow\;
+\mathbf Q;\mathbf P,\boldsymbol\beta,\omega_Q,\omega_P
+\right)\\
+&\qquad\Longrightarrow
 Q_1\parallel_{\omega_Q} Q_2
 \sqsubseteq_{\beta_{\parallel}}
 P_1\parallel_{\omega_P} P_2.
@@ -1466,15 +1534,22 @@ This makes the role of a hardware-specific prior precise:
 For an accepted candidate:
 
 $$
-\tau=
-\operatorname{Trace}_H(z)
-=
+\begin{aligned}
+\tau
+&=
+\operatorname{Trace}_H(z)\\
+&=
 \left\{
 \left(
-a,s_a,e_a,u_a,b_a,\lambda_A(a),\rho(a)
+\begin{array}{c}
+a,s_a,e_a,u_a,b_a,\\
+\lambda_A(a),\rho(a)
+\end{array}
 \right)
-\mid a\in A_G
+\;\middle|\;
+a\in A_G
 \right\}.
+\end{aligned}
 $$
 
 Fixed folds over this trace determine exact structural quantities:
@@ -1483,12 +1558,14 @@ $$
 K_{\mathrm{exact}}(\tau)
 =
 \left(
-\#\mathrm{operations},
-\mathrm{bytes},
-\mathrm{link\ uses},
-\mathrm{peak\ storage},
-\mathrm{resource\ cycles},
+\begin{array}{c}
+\#\mathrm{operations},\;
+\mathrm{bytes},\;
+\mathrm{link\ uses},\\
+\mathrm{peak\ storage},\;
+\mathrm{resource\ cycles},\\
 \mathrm{abstract\ makespan}
+\end{array}
 \right).
 $$
 
@@ -1506,13 +1583,18 @@ $$
 An implementation prediction is separate:
 
 $$
-\widehat K_\theta(\tau,H_{\mathrm{physical}})
-=
+\begin{aligned}
+&\widehat K_\theta
+\left(
+\tau,H_{\mathrm{physical}}
+\right)\\
+&\qquad=
 f_\theta
 \left(
 K_{\mathrm{exact}}(\tau),
 H_{\mathrm{physical}}
 \right).
+\end{aligned}
 $$
 
 \(\theta\) is calibrated from simulation, synthesis, FPGA measurement, or
@@ -1542,17 +1624,19 @@ supplying evidence to a small checker [R30]. Model Zero applies that pattern to
 co-design:
 
 $$
+\begin{aligned}
 \text{specify}
-\rightarrow
+&\rightarrow
 \text{propose}
 \rightarrow
-\text{check}
-\rightarrow
+\text{check}\\
+&\rightarrow
 \text{diagnose}
 \rightarrow
 \text{revise}
 \rightarrow
 \text{evaluate cost}.
+\end{aligned}
 $$
 
 The proof trusted base contains the formal definitions and the proof
@@ -1653,20 +1737,24 @@ family. The second target is then encoded once using only manifest records.
 The kernel-economy gate is:
 
 $$
-\operatorname{Prim}(K_0)
+\begin{aligned}
+&\operatorname{Prim}(K_0)
 =
 \left\{
-\operatorname{zero},
-\operatorname{copy},
-\operatorname{transfer},
+\begin{array}{c}
+\operatorname{zero},\;
+\operatorname{copy},\\
+\operatorname{transfer},\;
 \operatorname{tile\_mac}
-\right\}
-\land
-\Delta_{\mathrm{semantics}}=0
-\land
-\Delta_{\mathrm{checker}}=0
-\land
-\Delta_{\mathrm{manifest\ schema}}=0
+\end{array}
+\right\}\\
+&\land
+\Delta_{\mathrm{semantics}}=0\\
+&\land
+\Delta_{\mathrm{checker}}=0\\
+&\land
+\Delta_{\mathrm{manifest\ schema}}=0.
+\end{aligned}
 $$
 
 after the held-out machine is exposed. \(C(K_0)\) is reported, not hidden
@@ -1691,30 +1779,40 @@ The study reports:
 Every kernel-induced class must map into the independent reference:
 
 $$
-\operatorname{Included}(K_0,U_0,t,B)
-\quad\Longleftrightarrow\quad
-\forall g\in\operatorname{Expr}(K_0,t,B),\;
-\left(
+\begin{aligned}
+&\operatorname{Included}(K_0,U_0,t,B)\\
+&\quad\Longleftrightarrow
+\forall g\in\operatorname{Expr}(K_0,t,B):\\
+&\qquad
+\left[
 \exists\pi_g:
-\operatorname{Check}_{K_0}(g,\pi_g)=\operatorname{accept}
-\right)
-\Rightarrow
-\exists u\in U_0^{\mathrm{legal}}(t),
-\pi_{\mathrm{eq}}:
+\operatorname{Check}_{K_0}(g,\pi_g)
+=\operatorname{accept}
+\right]\\
+&\qquad\Rightarrow
+\left[
+\begin{array}{l}
+\exists u\in U_0^{\mathrm{legal}}(t),\pi_{\mathrm{eq}}:\\
 \operatorname{EqCheck}(u,g,\pi_{\mathrm{eq}})
-=
-\operatorname{accept}.
+=\operatorname{accept}
+\end{array}
+\right].
+\end{aligned}
 $$
 
 The reference must also contain at least one design outside the kernel-induced
 space in every held-out task family \(\mathcal F\):
 
 $$
-\forall\mathcal F\in\operatorname{Families}(\mathcal T_{\mathrm{test}}),\;
-\exists t\in\mathcal F:
+\begin{aligned}
+&\forall\mathcal F
+\in\operatorname{Families}(\mathcal T_{\mathrm{test}}),\;
+\exists t\in\mathcal F:\\
+&\qquad
 \mathcal M_{K_0}(t,B)
 \subsetneq
 \mathcal R_0(t).
+\end{aligned}
 $$
 
 This prevents a circular result in which the “richer” universe is merely
@@ -1791,9 +1889,12 @@ $$
 The primary formal result is:
 
 $$
-\operatorname{Check}_{\mathcal B_0,H}(z,\pi)=\operatorname{accept}
-\Rightarrow
+\begin{aligned}
+&\operatorname{Check}_{\mathcal B_0,H}(z,\pi)
+=\operatorname{accept}\\
+&\qquad\Longrightarrow
 \operatorname{Valid}_{\mathcal B_0,H}(z).
+\end{aligned}
 $$
 
 A proof assistant will check this theorem and the stated vertical and
@@ -1853,13 +1954,15 @@ An independently written trace counter checks every quantity called exact.
 For measured latency \(y_j>0\) and prediction \(\widehat y_j\), define:
 
 $$
+\begin{aligned}
 \operatorname{APE}_j
-=
-\frac{\left|\widehat y_j-y_j\right|}{y_j},
-\qquad
+&=
+\frac{\left|\widehat y_j-y_j\right|}{y_j},\\
 \operatorname{MdAPE}
-=
-\operatorname{median}_j\operatorname{APE}_j.
+&=
+\operatorname{median}_j
+\operatorname{APE}_j.
+\end{aligned}
 $$
 
 The confirmatory test has two gates. First, it requires zero exact-count
@@ -1928,12 +2031,13 @@ Y_{10}
 =
 \mathbf 1
 \left[
-\left(
+\begin{aligned}
+&
 \exists\pi:
-\operatorname{Check}_{K_0}(\widehat g_t,\pi)=\operatorname{accept}
-\right)
-\land
-r_A(t)\le 0.10
+\operatorname{Check}_{K_0}(\widehat g_t,\pi)
+=\operatorname{accept}\\
+&\land r_A(t)\le 0.10
+\end{aligned}
 \right].
 $$
 
