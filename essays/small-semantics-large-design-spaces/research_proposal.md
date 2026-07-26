@@ -286,13 +286,15 @@ route. For example, a parameterized schedule can establish both semantic
 refinement and buffer safety:
 
 $$
-\forall \gamma\in\mathcal G:\qquad
+\begin{aligned}
+\forall \gamma\in\mathcal G:\qquad&
 \operatorname{Exec}(z,\gamma)
-\sqsubseteq
-P_\gamma
-\quad\land\quad
-\forall e,k:\;
+\sqsubseteq P_\gamma,
+\\
+&
+\forall e,k:\quad
 0\le b_e(k,\gamma)\le B_e.
+\end{aligned}
 $$
 
 A runtime guard checks \(\gamma\in\mathcal G\); the symbolic certificate proves
@@ -425,16 +427,21 @@ state \(s\). A runtime optimizer proposes action \(a\) with evidence \(\pi_a\).
 The trusted runtime checker defines the locally accepted subset:
 
 $$
-\mathcal A_{\mathrm{safe}}^z(s)
-=
-\left\{
-a\in\mathcal A_z(s)
-\;\middle|\;
+\begin{aligned}
+\operatorname{Safe}_z(s,a)
+&\Longleftrightarrow
 \exists \pi_a:\;
 \operatorname{Check}_{\mathrm{rt}}(z,s,a,\pi_a)
-=
-\operatorname{accept}
+=\operatorname{accept},
+\\
+\mathcal A_{\mathrm{safe}}^z(s)
+&=
+\left\{
+a\in\mathcal A_z(s)
+\mid
+\operatorname{Safe}_z(s,a)
 \right\}.
+\end{aligned}
 $$
 
 Invariant preservation alone is too weak: a wrong computation or a permanent

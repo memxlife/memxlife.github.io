@@ -330,13 +330,15 @@ cover a family \(\mathcal G\) without enumerating every concrete shape and
 route. For example, a parameterized schedule can establish both semantic
 refinement and buffer safety:</p>
 <div class="math-display">$$
-\forall \gamma\in\mathcal G:\qquad
+\begin{aligned}
+\forall \gamma\in\mathcal G:\qquad&amp;
 \operatorname{Exec}(z,\gamma)
-\sqsubseteq
-P_\gamma
-\quad\land\quad
-\forall e,k:\;
+\sqsubseteq P_\gamma,
+\\
+&amp;
+\forall e,k:\quad
 0\le b_e(k,\gamma)\le B_e.
+\end{aligned}
 $$</div>
 
 <p>A runtime guard checks \(\gamma\in\mathcal G\); the symbolic certificate proves
@@ -450,16 +452,21 @@ order, live storage, resource capacity, and other safety facts relevant in
 state \(s\). A runtime optimizer proposes action \(a\) with evidence \(\pi_a\).
 The trusted runtime checker defines the locally accepted subset:</p>
 <div class="math-display">$$
-\mathcal A_{\mathrm{safe}}^z(s)
-=
-\left\{
-a\in\mathcal A_z(s)
-\;\middle|\;
+\begin{aligned}
+\operatorname{Safe}_z(s,a)
+&amp;\Longleftrightarrow
 \exists \pi_a:\;
 \operatorname{Check}_{\mathrm{rt}}(z,s,a,\pi_a)
-=
-\operatorname{accept}
+=\operatorname{accept},
+\\
+\mathcal A_{\mathrm{safe}}^z(s)
+&amp;=
+\left\{
+a\in\mathcal A_z(s)
+\mid
+\operatorname{Safe}_z(s,a)
 \right\}.
+\end{aligned}
 $$</div>
 
 <p>Invariant preservation alone is too weak: a wrong computation or a permanent
