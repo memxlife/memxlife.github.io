@@ -154,9 +154,12 @@ iteration and dependence questions into integer relations and support verified
 code generation [R13]. Pure tensor languages support compositional proofs of
 schedule rewrites and lowering [R14, R15]. Verified high-level synthesis shows
 that an untrusted scheduler can propose a high-performance schedule while a
-small validator checks it [R16]. TrainVerify provides direct modern evidence
-that tensor size need not determine equivalence-checking cost: its verified
-shape reduction scales distributed-training plan checks to Llama 3 405B and
+small validator checks it [R16]. Wavelet verifies compilation to asynchronous
+dataflow through forward simulation, then proves determinacy and deadlock
+freedom separately; one correct schedule does not establish that every legal
+schedule is correct [R31]. TrainVerify provides direct modern evidence that
+tensor size need not determine equivalence-checking cost: its verified shape
+reduction scales distributed-training plan checks to Llama 3 405B and
 DeepSeek-V3, although it does not verify kernels, buffers, runtime protocols,
 or hardware implementation [R25]. None of these results alone proves that a
 complete system for tensor computing is easy to verify. Together they identify
@@ -190,28 +193,68 @@ $$
 $$
 
 where \(\rho_z(v)\) is a declared bounded summary of the payload facts that can
-affect control. On reachable, well-formed states, the proof obligation is a
-property-preserving simulation:
+affect control. Let \(S_{0,z}\) and \(\widehat S_{0,z}\) be the concrete and
+abstract initial states, and let \(\varphi\) and \(\widehat\varphi\) be the
+corresponding property interpretations. A sound abstraction must cover initial
+states, simulate transitions on reachable well-formed states, and preserve the
+property being proved. Let \(h_z\) map each concrete event label to its declared
+abstract observation:
 
 $$
-s\rightarrow_z s'
-\quad\Longrightarrow\quad
-\alpha_z(s)\;\widehat{\rightarrow}_z\;\alpha_z(s').
+\begin{aligned}
+\alpha_z(S_{0,z})
+&\subseteq
+\widehat S_{0,z},
+\\
+s\xrightarrow{\lambda}_z s'
+&\Longrightarrow
+\alpha_z(s)
+\;\widehat{\xrightarrow{h_z(\lambda)}}_z\;
+\alpha_z(s'),
+\\
+\widehat\varphi\bigl(\alpha_z(s)\bigr)
+&\Longrightarrow
+\varphi(s).
+\end{aligned}
 $$
 
 The abstract transition may over-approximate the concrete one, but proving the
-property on the abstract system must imply it for the concrete system. Exact
-payload erasure is the useful special case \(\rho_z(v)=\bot\): equal control and
-geometry then permit the same projected successors for every payload. That
-condition is sufficient, not necessary; bounded summaries and conservative
-over-approximation may also be sound [R17, R28].
+property on the abstract system must imply it for the concrete system
+[R28, R32]. Setting \(\rho_z(v)=\bot\) only erases payloads syntactically. To
+preserve both control state and observable actions, define
+
+$$
+\mathcal Q_z(s)
+=
+\left\{
+\bigl(h_z(\lambda),\alpha_z(t)\bigr)
+\;\middle|\;
+s\xrightarrow{\lambda}_z t
+\right\}.
+$$
+
+Payload erasure is an exact quotient only if states with the same abstraction
+induce the same labeled abstract successors:
+
+$$
+\alpha_z(s_1)=\alpha_z(s_2)
+\quad\Longrightarrow\quad
+\mathcal Q_z(s_1)=\mathcal Q_z(s_2).
+$$
+
+Exact quotienting is sufficient, not necessary; bounded summaries and
+conservative over-approximation may also be sound. Hardware data-independence
+work gives checkable semantic conditions under which control does not depend on
+particular data values [R33]. It is direct precedent, but its restrictions
+exclude equality-dependent control and arbitrary tensor arithmetic.
 
 This makes the claim measurable rather than verbal. Every field of
 \(\gamma\) and \(\rho_z\) needs declared provenance, and the abstraction and
-precision must be fixed before comparison. If any retained abstract
-component—whether named geometry or summary—grows with the number of payload
-elements, then payload abstraction has merely renamed the state and the
-hypothesis fails.
+precision must be fixed before comparison. A linear summary can still collapse
+an exponential payload-value space, so summary size alone is not the
+falsifier. The relevant test is scaling: if abstract reachability, certificate
+size, or checking time grows with payload volume enough to erase the claimed
+advantage, the hypothesis fails.
 
 Fixed shape is not sufficient: MoE routing can change active work and routes
 while keeping tensor extents fixed. Value-dependent sparsity, addresses,
@@ -416,14 +459,17 @@ I(s)\land
 &\qquad\qquad
 I(s')
 \land
-\bigl(\sigma_z(s),\sigma_z(s')\bigr)
-\in{\Rightarrow_P}^{*}.
+\sigma_z(s)
+\xRightarrow{\ell(a,\eta)}_P
+\sigma_z(s').
 \end{aligned}
 $$
 
 Here \(\mathcal E_z(s,a)\) is the declared set of environmental events for
-which the guarantee is claimed; \({\Rightarrow_P}^{*}\) permits internal
-stuttering but not a change in declared behavior. Depending on the semantics,
+which the guarantee is claimed. The weak labeled transition
+\(\xRightarrow{\ell(a,\eta)}_P\) means zero or more specification-internal
+steps, the declared observable label, then zero or more internal steps; an
+implementation-internal action uses \(\ell=\tau\). Depending on the semantics,
 an action may form a batch, select a certified kernel, allocate memory blocks,
 schedule independent tiles, choose a legal route, or adjust precision and
 power within explicit error and timing contracts.
@@ -450,9 +496,11 @@ $$
 \(\operatorname{Live}_z\) may state fairness, bounded response, deadlines, and
 the required fallback after rejection or an out-of-envelope event. This is a
 supervisory-control problem: expose the largest useful set of actions whose
-closed-loop behavior stays within the legal language [R29]. A heuristic or
-learned policy can remain outside the trusted base only when a proved monitor
-and fallback enforce this policy-level contract.
+closed-loop behavior stays within the legal language [R29]. A finite-prefix
+monitor can enforce safety and bounded-progress obligations, but not arbitrary
+liveness. General liveness therefore needs an offline policy proof, or it must
+be reduced to an enforceable ranking, deadline, or guaranteed fallback
+controller. The same condition rules out infinite internal stuttering.
 
 At runtime, the system should not repeat whole-system model checking. The
 expensive proof establishes the checker and invariant offline. Compile- or
@@ -508,33 +556,41 @@ L\sqsubseteq_A H
 \\
 &
 \operatorname{Obs}\bigl(K[L]\bigr)
-\subseteq
+\preceq_{\mathcal O,\varepsilon}
 \operatorname{Obs}\bigl(K[H]\bigr).
 \end{aligned}
 $$
 
-The declared observations include output values and allowed error, as well as
-progress, divergence, and timing whenever higher layers rely on them.
+The observation preorder must account for accepted inputs and refusals,
+finite and infinite traces, output values and allowed numerical error,
+divergence, progress, and timing whenever higher layers rely on them.
 Restricting \(K\) to contexts that satisfy the typed assumptions makes the
-contract explicit; requiring the relation to be preserved by composition makes
-it substitutive [R30]. The required end-to-end theorem is then
+contract explicit. For the software and runtime stack, define
+\(K_{C,R}[-]\equiv\operatorname{Exec}(-,C,R)\). The required inference is
 
 $$
 \begin{aligned}
-&
-\operatorname{Exec}(H,C,R)\sqsubseteq P
-\ \land\
-L\sqsubseteq_A H
+K_{C,R}
+&\in\operatorname{Ctx}(A),
 \\
-&\qquad\Longrightarrow
+\operatorname{Exec}(H,C,R)
+&\sqsubseteq P,
+\\
+L
+&\sqsubseteq_A H
+\\
+&\Longrightarrow
 \operatorname{Exec}(L,C,R)\sqsubseteq P.
 \end{aligned}
 $$
 
-The theorem is an obligation of the proposed model, not a consequence of
-notation alone. Its first premise includes the policy-level runtime contract;
-its second prevents one layer from silently assuming behavior that the next
-does not provide.
+This inference is valid only after proving that \(\sqsubseteq_A\) is a
+precongruence for the proposed typed contract language. Interface automata
+establish such substitutivity for a narrower untimed I/O setting [R30]; they
+are precedent, not a proof of the richer tensor relation. The
+\(\operatorname{Exec}(H,C,R)\) premise includes the policy-level runtime
+contract; contextual refinement prevents one layer from silently assuming
+behavior that the next does not provide.
 
 ### 3.4 Optimize common cases; prove every admitted case
 
@@ -573,11 +629,11 @@ and energy claims still require calibration and measurement.
 
 Hybrid Agentic AI may search offline designs, synthesize specialization rules,
 or learn runtime policies. An online optimizer may itself be heuristic or
-learned, but action checking alone is insufficient: the proved monitor and
-fallback must force its behavior into \(\mathcal R_{\mathrm{adm}}^z\).
-LLM-powered agents need not sit on a latency-critical path; they are one
-possible source of proposals, not the semantics or the authority for
-correctness.
+learned, but action checking alone is insufficient. Its policy must be proved
+admissible offline, or an enforceable monitor and fallback must keep its
+behavior inside \(\mathcal R_{\mathrm{adm}}^z\). LLM-powered agents need not sit
+on a latency-critical path; they are one possible source of proposals, not the
+semantics or the authority for correctness.
 
 ## 4. An unfinished constructive program
 
@@ -830,6 +886,18 @@ of Discrete Event Processes,” 1987.
 [R30] Luca de Alfaro and Thomas A. Henzinger, “Interface Automata,”
 2001.
 [DOI](https://doi.org/10.1145/503209.503226)
+
+[R31] Zhengyao Lin, Yi Cai, and Milijana Surbatovich, “Let It Flow: A
+Formally Verified Compilation Framework for Asynchronous Dataflow,” 2026.
+[DOI](https://doi.org/10.1145/3808263)
+
+[R32] Edmund M. Clarke, Orna Grumberg, and David E. Long, “Model
+Checking and Abstraction,” 1994.
+[DOI](https://doi.org/10.1145/186025.186051)
+
+[R33] Lyes Benalycherif and Anthony McIsaac, “A Semantic Condition for
+Data Independence and Applications in Hardware Verification,” 2009.
+[DOI](https://doi.org/10.1016/j.entcs.2009.08.004)
 
 <script type="text/javascript" async
   src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
