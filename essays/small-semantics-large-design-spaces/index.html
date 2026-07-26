@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Research proposal for a verifiable tile-compute model for agentic AI software-hardware co-design.">
+  <meta name="description" content="Exploratory proposal on verifiable tensor co-design across hardware, compiler, and runtime.">
   <title>Small Semantics, Large Design Spaces</title>
   <style>
     :root {
@@ -83,1977 +83,567 @@
 <main>
   <a class="home" href="../../index.html">← Li Shang</a>
 <h1 id="small-semantics-large-design-spaces">Small Semantics, Large Design Spaces</h1>
-<p><strong>A Verifiable Tile-Compute Model for Agentic AI Software–Hardware Co-Design</strong><br>
-<strong>Status:</strong> Research proposal; no experimental results are claimed<br>
+<p><strong>Can tensor regularity separate optimization freedom from verification
+complexity?</strong><br>
+<strong>Status:</strong> Exploratory research proposal; the central hypothesis has not been
+tested<br>
 <strong>Date:</strong> 2026-07-26</p>
 <h2 id="abstract">Abstract</h2>
-<p>Many costly regions of AI workloads are built from regular tensor tiles. Their
-iteration domains, data dependencies, and data movement can often be made
-explicit before execution. This creates an opportunity that is weaker for
-irregular general-purpose code: performance choices may be moved from hidden
-runtime speculation into an explicit design-time description.</p>
-<p>This proposal tests one central hypothesis:</p>
-<blockquote>
-<p><strong>A fixed four-primitive tile-compute kernel can generate many verified
-software–hardware designs while retaining designs near the optimum of a
-richer independent space. An AI agent may search this space, but it cannot
-change its meaning or approve its own output.</strong></p>
-</blockquote>
-<p>The kernel has four value-producing primitives: zero, copy, transfer, and tile
-multiply–accumulate. Typed rules govern storage, dependence, placement,
-routing, resources, and time. Tile sizes, layouts, schedules, mappings, and
-machine parameters still create many possible designs. Every accepted design
-is interpreted by the same fixed semantics and carries a replayable
-certificate.</p>
-<p>This changes the role of Agentic AI. The agent is not the source of
-correctness. It is an untrusted search procedure over a large, structured
-space. A deterministic checker verifies functional refinement, event order,
-finite resources, storage, routes, and completion. The model's representation
-regret and the agent's search regret are measured separately. Latency, energy,
-and area remain empirical predictions and are validated separately from formal
-correctness.</p>
-<p>The first study, <strong>Model Zero</strong>, covers bounded tiled matrix multiplication,
-exact signed-integer arithmetic, discrete time, static schedules, and two
-abstract machine families: a cooperative tensor engine and a systolic array.
-It tests six claims: four primitive forms remain frozen across the two
-families; the extracted checker is sound; the kernel induces many distinct
-legal designs; its best designs are near the independently computed reference
-optimum; a fixed agent can find good checked designs under a fixed budget; and
-one frozen cost model predicts held-out backend measurements within registered
-limits.</p>
-<p>The formal theorem ends at timed architectural actions, not RTL or silicon.
-Model Zero is a test of the idea on exact tiled computation, not a model of all
-LLM execution. Dynamic batching, KV-cache policies, sparse routing, sampling,
-collectives, failures, and physical implementation are later extensions.</p>
-<h2 id="1-the-problem">1. The problem</h2>
-<h3 id="11-tile-dominant-computation-creates-a-special-opportunity">1.1 Tile-dominant computation creates a special opportunity</h3>
-<p>An AI workload is often shown as a graph of tensor operations. Its execution
-depends on decisions across the full stack:</p>
-<p>$$
-\begin{aligned}
-\text{tensor computation}
-&amp;\rightarrow \text{numerical choices}
-\rightarrow \text{graph rewrites}\\
-&amp;\rightarrow \text{tiling}
-\rightarrow \text{layout and placement}\\
-&amp;\rightarrow \text{parallel schedule}
-\rightarrow \text{communication}\\
-&amp;\rightarrow \text{machine resources}
-\rightarrow \text{architectural actions}
-\rightarrow \text{implementation}.
-\end{aligned}
-$$</p>
-<p>These decisions interact. A tile size changes reuse, storage, traffic,
-parallelism, and legal accumulation order. A data layout changes both locality
-and bank conflicts. A hardware primitive can save time but consume more area.
-A communication schedule can reduce traffic yet create a cyclic wait.
-Optimizing each layer in isolation can therefore reject the best system design
-or accept an inconsistent one.</p>
-<p>Lowering does more than translate syntax. Each step chooses facts that were
-previously open, such as a tile shape, precision, placement, route, or start
-time. These choices narrow the design space. A sound lowering must state the
-new choice, define its meaning, and show that it still implements the contract
-above.</p>
-<p>The physical prior is that many compute-heavy tensor regions have bounded,
-repeated iteration spaces and regular producer–consumer relations. Their main
-performance decisions can therefore be stated before execution. This does not
-describe every part of an LLM system. It is the hypothesis to test for a
-declared tile-dominant domain.</p>
-<h3 id="12-the-distinction-is-explicit-versus-hidden-performance-control">1.2 The distinction is explicit versus hidden performance control</h3>
-<p>General-purpose processors must perform well across programs with branches,
-pointer-dependent memory access, interrupts, and other data-dependent
-behavior. High-performance implementations often discover useful instruction
-parallelism and locality at runtime through mechanisms such as out-of-order
-issue, speculation, caches, prefetching, and arbitration. These mechanisms are
-not wrong or unverifiable. They place important performance decisions inside a
-large dynamic machine state.</p>
-<p>Tile-oriented execution offers another contract. Dependencies, storage
-lifetimes, communication, resource use, and start times can often be selected
-by a compiler or design tool and exposed directly. Performance can then come
-from a statically chosen composition rather than from an
-implementation-internal runtime choice.</p>
-<p>The boundary is not CPU versus accelerator. An ISA may expose tile operations;
-Intel AMX is one concrete example [R55]. Accelerators may also contain dynamic
-control. The relevant comparison is:</p>
-<p>$$
-\boxed{
-\begin{array}{c}
-\text{general-purpose ISA contract}\\
-\text{that abstracts over microarchitecture}\\[3pt]
-\text{versus}\\[3pt]
-\text{explicit timed tile-resource contract}
-\end{array}
-}
-$$</p>
-<p>The proposal asks whether the second contract is sufficient for a useful AI
-workload domain.</p>
-<h3 id="13-few-primitives-can-induce-a-large-design-space">1.3 Few primitives can induce a large design space</h3>
-<p>Let \(K\) be a fixed semantic kernel. Its primitive and proof rules should be
-inspectable and mechanized. Few primitive forms need not imply few designs:</p>
-<p>$$
-\left|\operatorname{Prim}(K_0)\right|=4,
-\qquad
-\left|\mathcal Z_K(t)\right|
-\text{ can be large}.
-$$</p>
-<p>For one task \(t\), the space may contain the product of choices for tiling,
-fusion, layout, placement, buffering, pipelining, routing, and machine
-parameters:</p>
-<p>$$
-\begin{aligned}
-\mathcal Z_K(t)
-\subseteq{}&amp;
-\mathcal T_t
-\times\mathcal F_t
-\times\mathcal L_t
-\times\mathcal P_t\\
-&amp;{}\times\mathcal B_t
-\times\mathcal S_t
-\times\mathcal R_t
-\times\mathcal H_t.
-\end{aligned}
-$$</p>
-<p>The scientific opportunity is not to make optimization easy. It is to make
-every design choice explicit and give every accepted combination one fixed
-meaning. A four-primitive grammar can still generate a combinatorial space.</p>
-<h3 id="14-the-agent-searches-the-model-and-checker-constrain-it">1.4 The agent searches; the model and checker constrain it</h3>
-<p>Language-model agents are good at proposing and revising designs across
-different notations and tools. Their output is still produced by statistical
-inference. A confident answer is not evidence that all reductions are complete,
-all values are available before use, or all shared resources are legal.</p>
-<p>Compiler errors, simulations, and tests are useful, but they answer limited
-questions. A finite test checks only the tested inputs and executions.
-Simulation checks the behavior encoded by the simulator, which may omit a
-constraint or share the same mistake as the design. Formal acceptance requires
-a defined specification and a checker whose acceptance rule can itself be
-proved sound.</p>
-<p>The proposed architecture is:</p>
-<p>$$
-\boxed{
-\begin{array}{rcl}
-\text{search} &amp;:&amp; \text{untrusted high-capacity proposer}\\
-\text{meaning} &amp;:&amp; \text{fixed four-primitive semantic kernel}\\
-\text{acceptance} &amp;:&amp; \text{deterministic checker}
-\end{array}
-}
-$$</p>
-<p>The agent searches the space induced by the kernel. The checker decides whether
-a candidate belongs to the verified subset. The agent may choose parameters
-and compositions, but it may not invent a new primitive, change an operation's
-meaning, or waive a failed obligation.</p>
-<h3 id="15-correctness-and-physical-prediction-are-different-claims">1.5 Correctness and physical prediction are different claims</h3>
-<p>For a declared abstract machine, a checker can prove facts such as:</p>
-<ul>
-<li>every output element receives exactly the required reduction terms;</li>
-<li>an action reads only available data;</li>
-<li>overlapping actions do not exceed a resource capacity;</li>
-<li>a buffer is not overwritten while its value is live; and</li>
-<li>every action in a finite static schedule issues and completes.</li>
-</ul>
-<p>These are deductive claims: if the model assumptions hold, the conclusion
-follows.</p>
-<p>Physical latency, energy, and area are different. They depend on details such
-as synthesis, placement, routing, clocking, voltage, memory behavior, and
-measurement noise. Their validity must be tested on held-out artifacts. A
-formal checker may use an admitted upper timing bound as an assumption, but it
-must report that assumption rather than present it as a physical theorem.</p>
-<p>This separation is central:</p>
-<p>$$
-\text{formal correctness under a model}
-\neq
-\text{empirical accuracy of the model}.
-$$</p>
-<p>An error found after architecture freeze, RTL integration, physical design, or
-tape-out has a long feedback loop. Formal checking does not replace simulation,
-timing analysis, physical signoff, or silicon measurement. It rejects defined
-error classes before those stages.</p>
-<h2 id="2-scientific-question-and-claims">2. Scientific question and claims</h2>
-<h3 id="21-central-scientific-question">2.1 Central scientific question</h3>
-<blockquote>
-<p><strong>Can a fixed four-primitive, machine-checkable kernel generate many legal
-designs for bounded tile programs while retaining near-optimal designs from
-a richer independent space? Can an untrusted AI agent search that space
-effectively?</strong></p>
-</blockquote>
-<p>“Small” is shorthand for the frozen four-primitive value kernel, not a claim
-that the full theory or trusted code is absolutely minimal. “Complete” is also
-scoped: every fact that affects the stated correctness and exact-cost claims
-must be derived from the model or listed as an external assumption. It does not
-mean that the kernel represents every legal machine.</p>
-<p>This question has six parts:</p>
+<p>Agentic AI can search a large software–hardware design space, but it cannot
+guarantee that every lowering, schedule, or hardware choice is correct. A
+formal checker can provide that guarantee only when the system has a precise
+and manageable model.</p>
+<p>Tensor computing may have the right structure. In a bounded tensor region,
+operations, shapes, dependencies, and data movement are often known before
+execution. Tiling, layout, placement, buffering, routing, scheduling, and the
+GPU microarchitecture itself still create many possible implementations. The
+key possibility is that these are mostly choices <strong>between designs</strong>, not
+unpredictable choices <strong>inside one running design</strong>.</p>
+<p>This proposal has two questions:</p>
 <ol>
-<li><strong>Kernel economy:</strong> Can one four-primitive semantic kernel remain unchanged
-   for a held-out machine family, with every rule, assumption, and trusted byte
-   reported?</li>
-<li><strong>Soundness:</strong> Does checker acceptance imply functional, temporal, storage,
-   route, resource, and bounded-completion validity?</li>
-<li><strong>Richness:</strong> Does the kernel induce many distinct legal designs, not
-   merely many equivalent syntax trees?</li>
-<li><strong>Optimization sufficiency:</strong> Is the best induced design close to the best
-   design in a richer independent reference space?</li>
-<li><strong>Search:</strong> Can a fixed AI agent find a checked design close to the kernel's
-   own optimum under a fixed budget?</li>
-<li><strong>Physical prediction:</strong> Do costs derived from checked traces predict
-   held-out backend measurements within fixed limits?</li>
+<li><strong>Why might tensor computing have a large optimization space but a small
+   verification-relevant runtime space for each selected design?</strong></li>
+<li><strong>Can one frozen staged-resource contract compose workload, compiler,
+   runtime, architecture, and implementation obligations without hidden
+   target-specific semantics or unacceptable loss of good designs?</strong></li>
 </ol>
-<p>Each part requires different evidence. A size count cannot prove soundness. A
-soundness theorem cannot show that the space contains good designs. A strong
-agent cannot repair a weak representation. A formal trace cannot prove a
-physical latency estimate.</p>
-<p>Let \(K\) be the kernel, \(t\) a task, and \(B\) a finite expression and
-schedule bound. The verified semantic design space is:</p>
+<p>The model treats microarchitecture, compiler, and runtime as resource
+decisions committed at manufacture time, compile time, and runtime.</p>
+<p>The first goal is not to build a complete language or an end-to-end LLM
+system. The first question tests whether the project is tractable. The second
+constructs the cross-layer model if that opportunity is real. An AI agent then
+searches the model; it is not the source of its correctness.</p>
+<h2 id="1-the-core-problem">1. The core problem</h2>
+<p>End-to-end AI infrastructure design contains many coupled choices:</p>
 <p>$$
-\mathcal M_K(t,B)
+\begin{aligned}
+\text{tensor program}
+&amp;\rightarrow \text{numerical form}
+\rightarrow \text{tiling and fusion}\
+&amp;\rightarrow \text{layout and placement}
+\rightarrow \text{schedule and communication}\
+&amp;\rightarrow \text{GPU microarchitecture}
+\rightarrow \text{RTL and physical implementation}.
+\end{aligned}
+$$</p>
+<p>A choice at one level changes the legal and efficient choices below it. For
+example, tile size changes data reuse, storage demand, parallelism, and
+communication. An AI agent may search these interactions well, but its answer
+is still a statistical proposal. A mistake found after RTL integration or
+tape-out is expensive.</p>
+<p>Software and hardware are coupled. For a chosen machine, software selects
+transformations, schedules, mappings, and resource allocations. But the
+machine is also a design variable: compute arrays, pipelines, memories, ports,
+links, and supported operations can be changed to serve the workload. The
+search target is therefore a matched software–hardware pair, not software on a
+permanently fixed GPU.</p>
+<p>The naive response is to model the whole system and verify it. That usually
+fails because verification must cover every runtime alternative: branch
+outcomes, arbitration decisions, queue states, aliases, cache states,
+speculation, interrupts, and event interleavings. Even a small controller can
+have an enormous reachable state space.</p>
+<p>The real question is therefore not whether tensor workloads are large. They
+are. It is whether their <strong>performance freedom</strong> can be placed mainly at
+design time, without creating the same amount of <strong>runtime control
+uncertainty</strong>.</p>
+<p>The two research questions depend on each other. If design freedom necessarily
+becomes runtime uncertainty, end-to-end verification will not scale. If the
+layer-specific priors cannot be composed, a local proof will not give an
+end-to-end guarantee.</p>
+<h2 id="2-question-i-why-optimization-and-verification-may-separate">2. Question I: Why optimization and verification may separate</h2>
+<h3 id="21-design-alternatives-are-not-runtime-alternatives">2.1 Design alternatives are not runtime alternatives</h3>
+<p>Freeze a finite workload suite (\mathcal T), architecture and schedule
+bounds, a technology backend, and a physical budget (B). One manufactured
+hardware design (H) is shared across the suite; compile-time choices (c_t)
+and runtime policies (\omega_t) may vary by task. Define:</p>
+<p>$$
+\mathcal Z_B(\mathcal T)
 =
-\left\{
-\operatorname{Can}(e)
+\left{
+(H,{c_t,\omega_t}<em T t_in_mathcal="t\in\mathcal">{t\in\mathcal T})
 \;\middle|\;
-\begin{array}{l}
-e\in\operatorname{Expr}(K,t,B),\\
-\exists\pi:
-\operatorname{Check}_K(e,\pi)=\operatorname{accept}
-\end{array}
-\right\}.
+\operatorname{Accepted}_B
+\left(H,{c_t,\omega_t}</em>\right)
+\right}/{\equiv}.
 $$</p>
-<p>\(\operatorname{Can}\) maps equivalent encodings to one semantic design record.
-It preserves every distinction used for correctness or exact cost, including
-placement, route, schedule, and resource counts.</p>
-<p>An independent reference language \(U\) defines a richer space:</p>
+<p>(\operatorname{Accepted}_B) requires a well-formed bounded architecture,
+accepted software and hardware certificates, successful generation, and the
+declared physical budget under the named backend. The equivalence
+(\equiv) removes registered aliases, symmetries, and idle-time differences.
+The resulting set is finite. Its design richness is:</p>
 <p>$$
-\mathcal R(t)
+D_B(\mathcal T)
 =
-\left\{
-\operatorname{Can}(u)
-\;\middle|\;
-\begin{array}{l}
-u\in U(t),\\
-\operatorname{Valid}_U(u)
-\end{array}
-\right\}.
+\log_2\left|\mathcal Z_B(\mathcal T)\right|.
 $$</p>
-<p>The reference implementation must not call \(K\), its elaborator, or its
-checker. The first relation to establish is:</p>
+<p>After one (H) is manufactured and (c_t) is compiled, the unchosen hardware
+and compiler alternatives are not runtime states. Only decisions made by
+(\omega_t) branch during execution.</p>
+<p>For one selected design (z), let (T_z) be its runtime transition system.
+Let (\alpha_\varphi) be a preregistered abstraction proved to preserve the
+property (\varphi). Over every admitted input (x) and environment trace
+(\xi), define:</p>
 <p>$$
-\mathcal M_K(t,B)\subseteq\mathcal R(t).
-$$</p>
-<p>The proposal does not require equality. A useful restricted kernel may exclude many
-legal but unnecessary designs.</p>
-<p>Every task scored by \(\mathrm{H}_4\) or \(\mathrm{H}_5\) must satisfy:</p>
-<p>$$
-\mathcal M_K(t,B)\neq\varnothing,
-\qquad
-\mathcal R(t)\neq\varnothing.
-$$</p>
-<p>An empty space fails the corresponding claim; its optimum is not silently
-defined.</p>
-<p>For a registered positive cost \(J_t\), define:</p>
-<p>$$
-J_U^*(t)
+V_\varphi(z)
 =
-\min_{c\in\mathcal R(t)}J_t(c),
-\qquad
-J_K^*(t,B)
-=
-\min_{c\in\mathcal M_K(t,B)}J_t(c).
-$$</p>
-<p>The kernel's normalized representation regret is:</p>
-<p>$$
-r_K(t,B)
-=
-\frac{J_K^*(t,B)-J_U^*(t)}
-{J_U^*(t)}.
-$$</p>
-<p>The kernel is optimization-sufficient at tolerance \(\varepsilon\) when
-\(r_K(t,B)\le\varepsilon\) for every held-out task.</p>
-<p>For an agent-produced checked design \(\widehat c_t\), the total gap separates
-exactly:</p>
-<p>$$
-\begin{aligned}
-J_t(\widehat c_t)-J_U^*(t)
-={}&amp;
-\underbrace{
-J_t(\widehat c_t)-J_K^*(t,B)
-}_{\text{agent search gap}}\\
-&amp;+
-\underbrace{
-J_K^*(t,B)-J_U^*(t)
-}_{\text{representation gap}}.
-\end{aligned}
-$$</p>
-<p>This decomposition prevents two wrong conclusions. Poor agent search must not
-be blamed on the model, and a restrictive model must not be excused by a
-capable agent.</p>
-<p>For an expression \(g\), write
-\(J_t(g):=J_t(\operatorname{Can}(g))\).
-The constrained search problem remains:</p>
-<p>$$
-\begin{aligned}
-\min_{z\in\operatorname{Expr}(K,t,B)}\quad &amp; J_t(z) \\
-\text{subject to}\quad
-&amp; \exists\pi:
-\operatorname{Check}_K(z,\pi)=\operatorname{accept}.
-\end{aligned}
-$$</p>
-<p>For one objective, \(J_t\) is fixed before search. For several costs, the study
-will either use a declared scalar objective</p>
-<p>$$
-J_t(z)=w^{\mathsf T}K_{\mathrm{cost}}(z),\qquad w\ge 0,
-$$</p>
-<p>or report the Pareto set. The choice of \(w\), the hard constraints, and all
-cost-model versions are part of the task specification. A Pareto design is one
-for which no other legal design is at least as good on every declared cost and
-strictly better on one.</p>
-<h3 id="22-precise-terms">2.2 Precise terms</h3>
-<p><strong>Frozen benchmark.</strong> A manifest \(\mathcal B_0\) fixes the input domain,
-machine schemas, parameter ranges, time and size bounds, observation relation,
-and two separate languages. \(U_0\) is an independent finite reference
-language used to define the design universe. \(G_0\) is the proposed contract
-grammar implementing kernel \(K_0\). The induced benchmark domain is
-\(D_0=D(\mathcal B_0)\). Every kernel-economy, richness, regret, and soundness
-claim applies only to this frozen benchmark.</p>
-<p><strong>Small kernel.</strong> Kernel size is the registered tuple:</p>
-<p>$$
-C(K)
-=
-\left(
-\begin{array}{c}
-\left|\operatorname{Prim}(K)\right|,
-\left|\operatorname{Rule}(K)\right|,\\
-\left|\operatorname{Assumption}(K)\right|,
-\operatorname{TCBBytes}(K)
-\end{array}
-\right).
-$$</p>
-<p>The primitive, proof-rule, external-assumption, and trusted-code counting
-methods are fixed before the held-out machine is encoded. The semantic-kernel
-size and deployed trusted-code size are reported separately.
-Model Zero fixes four primitive forms. It does not claim that \(C(K_0)\) is
-absolutely minimal or infer total simplicity from the primitive count. The
-machine-checked result in \(\mathrm{H}_2\) tests whether the resulting rules
-and checker are in fact mechanizable.</p>
-<p>Machine-description complexity is reported separately:</p>
-<p>$$
-C_H(H)
-=
-\left(
-\begin{array}{c}
-|R_H|,
-|\operatorname{Routes}_H|,\\
-|\operatorname{TableRows}_H|,
-|\operatorname{DemandForms}_H|
-\end{array}
-\right).
-$$</p>
-<p>A manifest may supply capacities, routes, durations, resource-demand tables,
-and exact counts for existing primitives. It may not add value semantics,
-predicates, or executable code. This prevents target semantics from being
-hidden in an unreported “data” interface.</p>
-<p><strong>Semantic richness.</strong> Raw syntax does not count. The number of distinct legal
-designs must also ignore pure schedule slack. For richness only,
-\(\operatorname{RichCan}(c)\) keeps the task, machine, action/value graphs,
-operations, shapes, storage, placement, routes, and pairwise action
-order-or-overlap relation. It removes identifier aliases, exact start-cycle
-offsets, and cost values. Thus uniform delays and inserted idle time do not
-create new classes.</p>
-<p>Define the full design set and the near-optimal design set:</p>
-<p>$$
-\begin{aligned}
-\mathcal D_K^{\mathrm{all}}(t,B)
-&amp;=
-\left\{
-\operatorname{RichCan}(c)
-\mid
-c\in\mathcal M_K(t,B)
-\right\},\\
-\mathcal D_K^{(\eta)}(t,B)
-&amp;=
-\left\{
-\operatorname{RichCan}(c)
-\;\middle|\;
-\begin{array}{l}
-c\in\mathcal M_K(t,B),
-\\
-J_t(c)\le(1+\eta)J_K^*(t,B)
-\end{array}
-\right\}
-.
-\end{aligned}
-$$</p>
-<p>Their richness is:</p>
-<p>$$
-\begin{aligned}
-S_K^{\mathrm{all}}(t,B)
-&amp;=
-\log_2
 \left|
-\mathcal D_K^{\mathrm{all}}(t,B)
-\right|,\\
-S_K^{(\eta)}(t,B)
-&amp;=
-\log_2
-\left|
-\mathcal D_K^{(\eta)}(t,B)
-\right|.
-\end{aligned}
-$$</p>
-<p>The confirmatory study uses \(\eta=0.10\). A large full space with only one
-good design does not pass.</p>
-<p>For reference, the alias-free accepted-space size remains:</p>
-<p>$$
-S_K^{\mathrm{accepted}}(t,B)
-=
-\log_2
-\left|
-\mathcal M_K(t,B)
-\right|.
-$$</p>
-<p><strong>Optimization sufficiency.</strong> The kernel need not represent every reference
-design. It is sufficient only relative to a task distribution, objective,
-bound, and regret threshold. This is weaker and more useful than universal
-coverage.</p>
-<p><strong>External behavior.</strong> Model Zero observes termination status and output tensor
-values. Its evaluator is total: every run returns either
-\(\operatorname{Normal}(o)\) or a named \(\operatorname{Fault}(f)\). A valid
-candidate returns \(\operatorname{Normal}(o)\) for every registered input. A
-task may also declare completion time as an external contract. Internal events,
-occupancy, and traffic remain proof, cost, or diagnostic data; they are not
-automatically part of functional equivalence.</p>
-<p><strong>Soundness.</strong> If the checker accepts a candidate, that candidate satisfies the
-formal validity judgment:</p>
-<p>$$
-\begin{aligned}
-&amp;\operatorname{Check}_{\mathcal B_0,H}(z,\pi)
-=\operatorname{accept}\\
-&amp;\qquad\Longrightarrow
-\operatorname{Valid}_{\mathcal B_0,H}(z).
-\end{aligned}
-$$</p>
-<p>This implication must be proved from the semantics. Passing tests or detecting
-mutants does not prove it.</p>
-<p><strong>Decision completeness.</strong> The reverse direction—every semantically valid
-candidate has a certificate the checker accepts—is a separate, optional
-theorem. A conservative checker may reject legal designs; those false
-rejections must be measured. Because \(\mathcal M_K\) counts accepted designs,
-its representation regret includes both grammar restriction and conservative
-checker rejection unless decision completeness is proved. The two losses are
-reported separately when possible.</p>
-<p><strong>Verification closure.</strong> Every behavior that can affect the scoped correctness
-judgment must be either derived from a declared primitive or named as an
-external assumption. This is not a complete theory of hardware.</p>
-<p><strong>Agent search regret.</strong> Agent quality is measured against \(J_K^*(t,B)\), the
-best design available inside the fixed kernel. It is not measured only against
-another agent or prompt.</p>
-<p><strong>Refinement and composition.</strong> Vertical refinement connects two representation
-levels. Horizontal composition connects components at one level. They require
-different rules.</p>
-<h3 id="23-falsifiable-claims">2.3 Falsifiable claims</h3>
-<p>Section 5.1 states the six claims, their primary evidence, exact pass rules,
-and the narrow conclusion each result would allow.</p>
-<h2 id="3-what-prior-work-teaches-us">3. What prior work teaches us</h2>
-<p>The survey is organized by the problem each abstraction was built to solve.
-The point is not that early researchers had one complete hardware theory. They
-did not. The point is that they developed a method: define a small object,
-state what it means, show how objects compose, and keep the connection to a
-lower physical level explicit.</p>
-<h3 id="31-historical-foundations">3.1 Historical foundations</h3>
-<table>
-<thead>
-<tr>
-<th>Work</th>
-<th>Problem</th>
-<th>Response</th>
-<th>Lesson for this proposal</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Babbage and Lovelace [R1]</td>
-<td>A calculating machine was tied to particular calculations.</td>
-<td>Separate operations, their operands, and the mechanism that carries them out.</td>
-<td>A system description should separate meaning from one implementation.</td>
-</tr>
-<tr>
-<td>Turing [R2]</td>
-<td>“Mechanical procedure” lacked a precise mathematical definition.</td>
-<td>Define a small machine and a universal interpreter.</td>
-<td>A simple model can make a broad question exact, but computability alone says nothing about physical efficiency.</td>
-</tr>
-<tr>
-<td>Shannon [R3]</td>
-<td>Relay circuits were hard to analyze and simplify systematically.</td>
-<td>Map switching circuits to Boolean expressions and synthesize circuits from those expressions.</td>
-<td>A useful theory connects meaning, construction, and a physical cost.</td>
-</tr>
-<tr>
-<td>McCulloch and Pitts [R4]</td>
-<td>Isolated truth functions did not explain time-dependent network behavior.</td>
-<td>Model networks of simple units with delayed activity.</td>
-<td>Equal outputs do not imply equal schedules or implementations.</td>
-</tr>
-<tr>
-<td>Burks, Goldstine, and von Neumann [R5]</td>
-<td>Early computers faced severe equipment, storage, and reliability limits.</td>
-<td>Treat hardwired operations and synthesized sequences as explicit time–equipment choices.</td>
-<td>The choice of physical primitives is part of optimization.</td>
-</tr>
-<tr>
-<td>Von Neumann [R6]</td>
-<td>Complex automata could not be understood as one undivided object.</td>
-<td>Study elementary units, compose them through explicit contracts, and justify each contract at a lower level.</td>
-<td>A white box can be hierarchical: a component is abstract locally but still carries a refinement duty.</td>
-</tr>
-<tr>
-<td>Wilkes and Stringer [R7]</td>
-<td>Irregular control logic was hard to design and change.</td>
-<td>Implement control through a stored microprogram.</td>
-<td>The software–hardware boundary can move through another interpretation layer.</td>
-</tr>
-</tbody>
-</table>
-<p>This history gives a constructive pattern:</p>
-<p>$$
-\boxed{
-\begin{array}{cc}
-\text{primitives}
-&amp;
-\text{composition rules}\\[3pt]
-\text{interpretation rules}
-&amp;
-\text{physical assumptions}
-\end{array}
-}
-$$</p>
-<p>For this project, a model is white-box at a chosen level when every accepted
-behavior and legality judgment follows from declared primitives, and each
-primitive either has a checked refinement below or is named as an external
-assumption.</p>
-<h3 id="32-two-ways-to-obtain-performance">3.2 Two ways to obtain performance</h3>
-<p>The System/360 work separated programmer-visible architecture from machine
-organization [R53]. The RISC-V specification likewise avoids requiring an
-in-order, out-of-order, or microcoded implementation [R54]. This separation
-lets one instruction contract support many microarchitectures.</p>
-<p>The System/360 Model 91 used dynamic register tagging and a common data bus to
-find independent operations at runtime without requiring specially scheduled
-code [R49]. This solved an important general-purpose problem: useful parallelism
-could be recovered even when the instruction stream did not state it directly.
-Later processors added more speculation, prediction, caching, and dynamic
-scheduling. These mechanisms preserve a stable instruction-level contract
-while hiding many performance choices below it.</p>
-<p>Tile-oriented machines explore a different point. Systolic architectures map
-regular dataflow onto arrays with local, rhythmic communication [R50]. The
-first production TPU paired a large matrix unit with software-managed memory
-and reported a deterministic execution model, contrasting it with
-time-varying CPU and GPU mechanisms [R51]. Hennessy and Patterson later framed
-domain-specific architectures as a major path for architecture improvement
-[R52].</p>
-<p>These works do not prove this proposal's hypothesis. They identify its physical
-prior: regular workload structure may let a contract expose choices that a
-conventional ISA often leaves to lower software or implementation layers. The
-relevant object is the execution contract, not the device label. A CPU with
-explicit tile operations could implement the proposed contract, while an
-accelerator with hidden arbitration might not.</p>
-<h3 id="33-tensor-programs-and-verified-lowering">3.3 Tensor programs and verified lowering</h3>
-<p>Halide separates an algorithm from its performance schedule [R10]. TVM,
-TensorIR, and Ansor expose and search tensor schedules for heterogeneous
-targets [R11, R26, R12]. StableHLO defines a portable tensor-operation contract
-[R14]. Exo and Exo 2 build safe user-defined schedules from checked
-transformations [R32, R31]. These systems show that schedule choices should be
-explicit rather than hidden in generated code.</p>
-<p>Verified tensor scheduling uses machine-checked, semantics-preserving rewrites
-[R40]. The later ATL compiler proves lowering from a functional tensor
-language to imperative loop nests [R41]. CompCert and Alive2 are broader
-precedents for verified compilation and translation validation [R28, R29].
-The gap targeted here is how such correctness evidence connects to cycle-level
-resource binding for a selected machine configuration.</p>
-<h3 id="34-time-resources-and-safe-hardware-composition">3.4 Time, resources, and safe hardware composition</h3>
-<p>Synchronous dataflow makes rates explicit so schedules and buffer bounds can be
-analyzed [R8]. Timed automata add quantitative time to transition systems [R9].
-Dahlia uses a resource-aware type system to reject unpredictable HLS programs
-[R33]. Kôika and Kami show that small formal hardware languages can support
-deterministic semantics and deductive refinement [R34, R35].</p>
-<p>Filament encodes and enforces cycle-level timing and structural interface
-constraints [R42]. The 2024 Parafil v1 preprint lifts Filament's timing-safety
-checks to all instances of parameterized generators [R43]. Piezo makes its
-static-control fragment a semantic refinement of its dynamic fragment in Calyx
-[R36, R44]. Their reported guarantees begin at hardware-control or generator
-interfaces, not at a proved tensor and numerical specification.</p>
-<h3 id="35-formal-softwarehardware-interfaces">3.5 Formal software–hardware interfaces</h3>
-<p>The Instruction-Level Abstraction, or ILA, is a hierarchical, software-visible
-accelerator contract that supports ILA-to-ILA and ILA-to-FSM equivalence
-[R38]. 3LA uses it as an ISA-like software–hardware interface, combines it with
-flexible compiler matching, and generates instruction-level simulators for
-end-to-end application validation [R39].</p>
-<p>MLIR provides infrastructure for multiple intermediate representations [R13],
-but infrastructure alone does not prove that a cross-dialect lowering is
-correct. mlir-tv applies SMT-based translation validation to selected MLIR
-tensor and lowering transformations [R27]. The First-Class Verification
-Dialects framework provides semantics-supporting dialects and
-dialect-independent verification tools [R46]. The 2024 K-CIRCT preprint gives
-executable layered semantics for a substantial part of CIRCT hardware IR
-[R45].</p>
-<p>These systems make a cross-layer certificate chain more plausible. They also
-narrow the novelty claim: this proposal must contribute a precise connection
-among existing kinds of contracts, not merely another formal IR.</p>
-<h3 id="36-architecture-search-and-physical-cost">3.6 Architecture search and physical cost</h3>
-<p>Timeloop and MAESTRO represent mappings and estimate reuse, traffic,
-performance, and hardware cost [R16, R17]. Aladdin evaluates accelerators before
-RTL using calibrated models [R15]. Accelergy composes action counts with
-component energy estimates [R37].</p>
-<p>Their key lesson is that exact structural counts and empirical parameters
-should be separate. A legal trace can determine operation count, bytes moved,
-live storage, and abstract occupancy. It cannot prove that a physical
-implementation has a given clock rate, energy, or area.</p>
-<h3 id="37-ai-agents-for-software-and-hardware-design">3.7 AI agents for software and hardware design</h3>
-<p>SWE-agent shows that a purpose-built interface can change a fixed agent's
-success rate [R18]. ChipNeMo, VeriGen, VerilogEval, RTLLM, AutoChip,
-GPT4AIGChip, and Chip-Chat show useful forms of domain adaptation, RTL
-generation, tool feedback, accelerator generation, and conversational hardware
-design [R19–R25].</p>
-<p>Two 2026 preprints move closer to formal and end-to-end evaluation. FormalRTL
-reports a multi-agent RTL pipeline with equivalence checking against executable
-software reference models [R47]. HSCO-Bench benchmarks agents on kernel
-identification, accelerator-rich system generation, and software mapping
-[R48]. Neither reports a replayable refinement certificate from tensor
-semantics through timed resource constraints.</p>
-<h3 id="38-the-remaining-gap">3.8 The remaining gap</h3>
-<p>Verified tensor systems can prove scheduling and lowering steps. Timing-aware
-hardware languages can safely compose resource-constrained modules and
-parameterized generators. ILA and 3LA connect applications to formally
-specified accelerators. Formal MLIR and CIRCT work gives semantics to important
-compiler and hardware representations. Agent systems can generate RTL, use
-formal checks, and attempt end-to-end co-design.</p>
-<p>Across the systems surveyed here, the proposal tests one combined claim not
-reported end to end:</p>
-<blockquote>
-<p>Can one frozen four-primitive tile kernel induce a large space of distinct checked
-software–hardware designs, retain near-optimal designs from a richer
-independent space, and give an AI agent enough structure to search that
-space effectively?</p>
-</blockquote>
-<p>The replayable tensor-to-action certificate is the mechanism that makes every
-accepted point verifiable. Design-space richness and near-optimality are
-separate empirical claims. This proposal does not claim a new scheduling
-language, hardware language, cost model, or agent architecture.</p>
-<h2 id="4-proposed-model">4. Proposed model</h2>
-<h3 id="41-model-zero-is-finite-by-construction">4.1 Model Zero is finite by construction</h3>
-<p>Model Zero is described by a frozen manifest:</p>
-<p>$$
-\mathcal B_0=
+\alpha_\varphi
 \left(
-\begin{array}{c}
-\mathcal S_0,\;V_0,\;T_{\max},\;N_{\max},\\
-\mathcal H_{\mathrm{coop}},\;\mathcal H_{\mathrm{systolic}},\\
-U_0,\;K_0,\;G_0,\;\mathcal E_0
-\end{array}
-\right).
-$$</p>
-<p>\(\mathcal E_0\) freezes the canonical schema, objective, size-accounting rule,
-richness threshold, regret tolerances, and inclusion test.</p>
-<p>The matrix shapes are:</p>
-<p>$$
-\mathcal S_0=
-\left\{
-(M,N,K)\mid M,N,K\in\{4,8,16\}
-\right\},
-$$</p>
-<p>and the input values are:</p>
-<p>$$
-V_0=\{-2,-1,0,1,2\}.
-$$</p>
-<p>For a program with shape \((M,N,K)\), the registered input domain is:</p>
-<p>$$
-\mathcal I_{M,N,K}
-=
-V_0^{M\times K}
-\times
-V_0^{K\times N}.
-$$</p>
-<p>Write \(\mathcal I(P)=\mathcal I_{M,N,K}\) when \(P\) has that shape.</p>
-<p>The core experiment uses exact signed-integer arithmetic. A 16-bit accumulator
-cannot overflow in this domain because:</p>
-<p>$$
-\left|
-\sum_{k=0}^{K-1}A_{mk}B_{kn}
-\right|
-\le 16\cdot 2\cdot 2=64.
-$$</p>
-<p>\(T_{\max}\) bounds schedule time and \(N_{\max}\) bounds the action graph.
-Every identifier, operation, shape, placement, address, start time, and route
-comes from a finite manifest set. Routes are simple paths with a fixed maximum
-length. Certificates also have a fixed size bound. Thus a finite grammar cannot
-silently generate an unbounded candidate set.</p>
-<p>\(U_0\) defines candidates directly as finite tables of matrix-index products,
-dependencies, value locations, routes, start times, and per-cycle machine use.
-It is split into:</p>
-<p>$$
-U_0=
-U_0^{\mathrm{legal}}
-\uplus
-U_0^{\mathrm{fault}}.
-$$</p>
-<p>Only \(U_0^{\mathrm{legal}}\) is used to define the reference design space and
-its optimum.
-\(U_0^{\mathrm{fault}}\) is used for rejection and diagnostic tests. The
-reference language does not call the proposed kernel, grammar, elaborator, or
-checker. \(K_0\) is the fixed semantic kernel, and \(G_0\) is its typed surface
-grammar. Two independent implementations define \(U_0\). For enumerated tasks,
-their counts and canonical record hashes must agree. For larger exact searches,
-one implementation's candidate and optimality certificate must be checked by
-the other.</p>
-<p>A legal reference record \(u\in U_0^{\mathrm{legal}}\) and model expression
-\(g\in G_0\) are functionally equivalent when they produce equal outputs for
-every registered input:</p>
-<p>$$
-\begin{aligned}
-u\equiv_{\mathrm{fun}} g
-\quad\Longleftrightarrow\quad{}&amp;
-\operatorname{Valid}_{U_0}(u)\\
-&amp;\land
-\operatorname{Valid}_{G_0}(g)\\
-&amp;\land
-\operatorname{shape}(u)=\operatorname{shape}(g)\\
-&amp;\land
-\forall x\in\operatorname{Inputs}(u;V_0):\\
-&amp;\qquad
-\operatorname{Run}_{U_0}(u,x)
-=
-\operatorname{Run}_{G_0}(g,x).
-\end{aligned}
-$$</p>
-<p>Functional equivalence is not implementation identity. Richness and
-optimization must preserve the choices that distinguish two implementations.
-Both languages therefore normalize into one neutral record:</p>
-<p>$$
-\operatorname{Can}(c)
-=
-\left(
-\begin{array}{c}
-\operatorname{task},\;
-\operatorname{machine},\\
-\operatorname{valueGraph},\;
-\operatorname{actionGraph},\\
-\operatorname{opShape},\;
-\lambda_A,\;
-\lambda_V,\;
-\rho,\\
-s,\;
-E,\;
-K_{\mathrm{exact}},\;
-\operatorname{outputNF}
-\end{array}
-\right).
-$$</p>
-<p>\(\lambda_A\) records action placement, \(\lambda_V\) records memory locations
-and ranges, \(\rho\) records routes, \(s\) records exact start times, and \(E\)
-records elaborated durations and resource demands. These fields derive tiling,
-layout, buffering, dataflow, and timing rather than naming them informally.
-\(\operatorname{outputNF}\) is the exact matrix-index product normal form.
-Identifier names and explicitly registered graph or machine symmetries are
-normalized away. No other difference is discarded.</p>
-<p>The canonicalizers must satisfy:</p>
-<p>$$
-\begin{aligned}
-\operatorname{Can}(c_1)
-&amp;=
-\operatorname{Can}(c_2)\\
-&amp;\Longleftrightarrow
-c_1\equiv_{\mathrm{design}}c_2.
-\end{aligned}
-$$</p>
-<p>where \(\equiv_{\mathrm{design}}\) means equality of every field above modulo
-only the registered aliases. They must also preserve validity and every
-objective computed from the exact structural vector:</p>
-<p>$$
-\begin{aligned}
-\operatorname{Valid}(c)
-&amp;\Rightarrow
-\operatorname{Valid}_{\mathrm{Can}}
-\left(
-\operatorname{Can}(c)
-\right),\\
-J_t(c)
-&amp;=
-J_t
-\left(
-\operatorname{Can}(c)
-\right).
-\end{aligned}
-$$</p>
-<p>These properties are proved for the \(U_0\) and \(G_0\) normalizers. Each
-kernel-induced design carries a matching reference record and certificate
-\(\pi_{\mathrm{eq}}\). The equivalence checker recomputes both neutral
-records:</p>
-<p>$$
-\begin{aligned}
-&amp;\operatorname{EqCheck}(u,g,\pi_{\mathrm{eq}})
-=
-\operatorname{accept}\\
-&amp;\quad\Longleftrightarrow\quad
-\operatorname{Valid}_{U_0}(u)
-\land
-\operatorname{Valid}_{G_0}(g)\\
-&amp;\qquad\land
-\operatorname{Can}_{U_0}(u)
-=
-\operatorname{Can}_{G_0}(g).
-\end{aligned}
-$$</p>
-<p>Random or exhaustive input testing is used to find mistakes, but it is not
-accepted as the equivalence certificate.</p>
-<p>Thus the required relation is inclusion:</p>
-<p>$$
-\mathcal M_{K_0}(t,B)
-\subseteq
-\mathcal R_0(t).
-$$</p>
-<p>Equality is neither expected nor required. Every held-out task family must
-contain a task with a strictly richer reference space. The experiment then
-asks how many useful designs the smaller kernel induces and how much optimum
-quality, if any, it loses.</p>
-<p>The two machine sets are finite lists of legal configurations. Every machine
-record gives named resources, typed capacities, locations, routes, operation
-support, exact integer durations, and finite per-cycle resource demands. All
-values in the manifest are frozen and hashed before evaluation.</p>
-<p>The two target families are:</p>
-<ul>
-<li>a cooperative tensor engine with local memory, banks, ports, transfer
-  engines, tile-compute units, and explicit events; and</li>
-<li>a systolic array with processing elements, local registers, neighbor links,
-  injection resources, and drain resources.</li>
-</ul>
-<p>One target is used while developing the core. The core is then frozen before
-the second target is encoded. This tests whether the checker is genuinely
-target-independent. The second target is a one-shot holdout. If it exposes a
-missing primitive or checker rule, the confirmatory test fails. Any revised
-core must be tested on a new untouched target family; the failed holdout cannot
-be reused as final evidence.</p>
-<p>Model Zero excludes floating-point approximation, dynamic arbitration,
-unbounded queues, dynamic allocation, failures, clock-domain crossing, RTL
-equivalence, physical timing closure, and manufacturing effects. Each is a
-possible later extension, not an implicit part of the first claim.</p>
-<h3 id="42-representation-levels">4.2 Representation levels</h3>
-<p>Model Zero has four levels:</p>
-<p>$$
-\begin{aligned}
-L_0 &amp;: \text{mathematical matrix-multiplication contract},\\
-L_1 &amp;: \text{tiled, single-assignment value graph},\\
-L_2 &amp;: \text{placement, routes, and static start times},\\
-L_3 &amp;: \begin{array}{l}
-\text{timed architectural actions}\\
-\text{expanded from the machine contract}.
-\end{array}
-\end{aligned}
-$$</p>
-<p>RTL is outside the first refinement theorem. A backend may emit RTL, but that
-artifact carries an open proof obligation until a separate
-\(L_3\rightarrow\mathrm{RTL}\) validation step exists.</p>
-<p>Each lowering returns a lower representation and a certificate:</p>
-<p>$$
-P_i
-\xrightarrow{\;\ell_i\;}
-\left(
-P_{i+1},\pi_i,\mathcal A_i
-\right).
-$$</p>
-<p>\(\pi_i\) is evidence that the new representation refines the old one.
-\(\mathcal A_i\) records external conformance assumptions, such as the claim
-that a physical target implements the abstract machine table. Every deductive
-proof obligation must close before acceptance; an unresolved proof obligation
-cannot be relabeled as an assumption.</p>
-<h3 id="43-finite-action-semantics">4.3 Finite action semantics</h3>
-<p>For a selected machine \(H\), the proof model is:</p>
-<p>$$
-M_0(\mathcal B_0,H)=
-\left(
-\begin{array}{c}
-Q,\;A,\;R_H,\;\longrightarrow_H,\\
-\operatorname{Run},\;
-\operatorname{Valid}_{\mathcal B_0,H}
-\end{array}
-\right),
-$$</p>
-<p>where \(Q\) is the set of finite configurations, \(A\) is a finite action
-grammar, \(R_H\) is the machine's set of named resources,
-\(\longrightarrow_H\) defines issue and completion, and
-\(\operatorname{Run}\) returns either a normal external observation or a named
-fault. It is defined for every finite candidate and input.</p>
-<p>A complete candidate is:</p>
-<p>$$
-z=
-\left(
-P,H,G,\lambda_A,\lambda_V,\rho,s
-\right).
-$$</p>
-<p>\(P\) is the source tensor contract and
-\(H\in\mathcal H_{\mathrm{coop}}\cup\mathcal H_{\mathrm{systolic}}\).
-\(G\) is a typed action graph with at most \(N_{\max}\) actions.
-\(\lambda_A\) maps actions to legal machine locations. \(\lambda_V\) maps each
-logical value to a memory resource and a half-open address range:</p>
-<p>$$
-\lambda_V(v)=
-\left(
-m_v,[lo_v,hi_v)
-\right),
-\qquad
-hi_v-lo_v=\operatorname{size}(v).
-$$</p>
-<p>\(\rho\) maps transfers to bounded routes, and
-\(s:A_G\rightarrow\{0,\ldots,T_{\max}-1\}\) gives start times. Non-transfer
-actions use the empty route.</p>
-<p>Logical values are single-assignment. Physical reuse is modeled by mapping
-different logical values to the same storage at non-overlapping live times. An
-action contains:</p>
-<p>$$
-a=
-\left(
-\begin{array}{c}
-\operatorname{id},\;
-\operatorname{op},\;
-\operatorname{inputs},\\
-\operatorname{output},\;
-\operatorname{pred},\;
-\operatorname{shape}
-\end{array}
-\right).
-$$</p>
-<p>The initial primitive set is:</p>
-<p>$$
-\operatorname{Prim}(K_0)
-=
-\left\{
-\begin{array}{c}
-\operatorname{zero},\;
-\operatorname{copy},\\
-\operatorname{transfer},\;
-\operatorname{tile\_mac}
-\end{array}
-\right\}.
-$$</p>
-<p>Changing this set creates a new kernel version and requires a fresh holdout.
-The candidate chooses legal operations, placement, routes, and start times. It
-cannot choose its own duration or resource demand. All operations use signed
-16-bit values in Model Zero. Action evaluation is total. It returns
-\(\operatorname{Normal}(v)\) when every result fits in signed 16-bit form and
-\(\operatorname{Fault}(\mathrm{overflow})\) otherwise. Unsupported types and
-shapes return named faults. For explicit finite index sets \(I,J,K\), the
-normal value rules are:</p>
-<p>$$
-\begin{aligned}
-\llbracket\operatorname{zero}_{I,J}\rrbracket()_{ij}
-&amp;=0,\\
-\llbracket\operatorname{copy}_{I,J}\rrbracket(X)_{ij}
-&amp;=X_{ij},\\
-\llbracket\operatorname{transfer}_{I,J,\ell_1,\ell_2}\rrbracket(X)_{ij}
-&amp;=X_{ij},\\
-\llbracket\operatorname{mac}_{I,J,K}\rrbracket(A,B,C)_{ij}
-&amp;=C_{ij}+\sum_{k\in K}A_{ik}B_{kj}.
-\end{aligned}
-$$</p>
-<p>Copy preserves a value within one location. Transfer preserves the value across
-two locations and must occupy every resource on its declared route.</p>
-<p>The machine contract expands an action through one fixed table lookup and one
-fixed route-fold rule. Write:</p>
-<p>$$
-\operatorname{Expand}_H(a)
-:=
-\operatorname{Expand}
-\left(
-H,a,\lambda_A(a),\rho(a)
-\right).
-$$</p>
-<p>This shorthand denotes a total option-valued function:</p>
-<p>$$
-\operatorname{Expand}_H(a)
-\in
-\operatorname{Option}
-\left(
-\operatorname{ElaboratedAction}
-\right),
-$$</p>
-<p>The table key and lookup are:</p>
-<p>$$
-\begin{aligned}
-\operatorname{key}_H(a)
-&amp;=
-\left(
-\begin{array}{c}
-\operatorname{op}(a),\;
-\operatorname{shape}(a),\\
-\lambda_A(a),\;
-\operatorname{routeClass}(\rho(a))
-\end{array}
-\right),\\
-\operatorname{Expand}_H(a)
-&amp;=
-H.\operatorname{table}
-\left[
-\operatorname{key}_H(a)
-\right]\\
-&amp;=
-\operatorname{Some}
-\left(
-d_a,u_a,b_a
-\right).
-\end{aligned}
-$$</p>
-<p>where \(d_a\) is the exact abstract duration, \(u_a(r,\delta)\) is a finite
-resource-demand table, and \(b_a\) contains exact structural counts such as
-bytes transferred. Every action must satisfy
-\(1\le d_a\le T_{\max}\). A new target may add resource records and table
-rows, but it may not add executable expansion code. Route classes are finite
-manifest labels; the fixed route fold adds the declared demand of each
-traversed link. A missing row or illegal route returns
-\(\operatorname{None}\).</p>
-<p>The whole candidate elaborates only when every action succeeds:</p>
-<p>$$
-\begin{aligned}
-\operatorname{Elab}_H(z)
-&amp;=
-\operatorname{Some}(E)\\
-&amp;\Longleftrightarrow
-\forall a\in A_G,\;
-\exists d_a,u_a,b_a:\\
-&amp;
-\operatorname{Expand}_H(a)
-=
-\operatorname{Some}(d_a,u_a,b_a)\\
-&amp;\land
-E(a)=(d_a,u_a,b_a).
-\end{aligned}
-$$</p>
-<p>All later uses of \(d_a\), \(u_a\), and \(b_a\) are bound by such an
-elaboration \(E\). If elaboration fails, the total evaluator returns a named
-fault and the checker rejects the candidate.</p>
-<p>A configuration is:</p>
-<p>$$
-q=
-\left(
-t,\operatorname{Val},\operatorname{Started},
-\operatorname{Completed},\operatorname{Events}
-\right).
-$$</p>
-<p>An action issues at \(s_a\) only when its inputs and predecessor events are
-available and the static resource checks pass. Logical values are immutable.
-Their physical storage remains live until every consuming action completes.
-The action's output and completion event become visible at:</p>
-<p>$$
-e_a=s_a+d_a.
-$$</p>
-<p>Each cycle has two ordered phases. First, actions with \(e_a=t\) apply their
-registered value rule and publish outputs and completion events. Second,
-actions with \(s_a=t\) issue. Thus a consumer may start in the cycle when its
-producer completes, but it cannot see a partial write.</p>
-<p>An input is available at cycle zero. Every other value is available when its
-unique producer completes:</p>
-<p>$$
-\operatorname{avail}(v)=
-\begin{cases}
-0, &amp; v\text{ is a program input},\\
-e_{\operatorname{prod}(v)}, &amp; \text{otherwise}.
-\end{cases}
-$$</p>
-<p>Every input must be available when the action starts:</p>
-<p>$$
-\forall v\in\operatorname{inputs}(a):
-\quad
-\operatorname{avail}(v)\le s_a.
-$$</p>
-<p>Every declared predecessor must also be complete:</p>
-<p>$$
-\forall b\in\operatorname{pred}(a):
-\quad
-e_b\le s_a.
-$$</p>
-<p>Resource use is legal exactly when:</p>
-<p>$$
-\begin{aligned}
-&amp;\forall r\in R_H,\;
-\forall t\in\{0,\ldots,T_{\max}-1\}:\\
-&amp;\qquad
-\sum_{\substack{a\\s_a\le t&lt;e_a}}
-u_a(r,t-s_a)
-\le
-\operatorname{CapToken}_H(r).
-\end{aligned}
-$$</p>
-<p>Compute units, ports, banks, links, pipeline issue slots, and transfer engines
-are distinct named resources. \(\operatorname{CapToken}_H(r)\) gives capacity
-in the resource's declared unit, such as issue slots or port transactions.
-Memory bytes use the separate capacity
-\(\operatorname{CapBytes}_H(m)\). An exclusive resource has capacity one.
-Routes are legal only when every hop is present in the machine graph, and
-their expanded demand includes every occupied link.</p>
-<p>Let \(T_{\mathrm{obs}}=T_{\max}+1\) be the final observation point. The last
-required time for a value is:</p>
-<p>$$
-\operatorname{last}(v)
-=
-\max
-\left(
-\begin{array}{c}
-\{e_a\mid v\in\operatorname{inputs}(a)\}\\
-\cup\;
-\{T_{\mathrm{obs}}\mid v\text{ is a final output}\}\\
-\cup\;
-\{\operatorname{avail}(v)\}
-\end{array}
-\right).
-$$</p>
-<p>Its live interval is
-\(I_v=[\operatorname{avail}(v),\operatorname{last}(v))\). If
-\(\lambda_V(v)=(m_v,[lo_v,hi_v))\), then:</p>
-<p>$$
-\begin{aligned}
-&amp;\forall m,\;
-\forall t\in\{0,\ldots,T_{\max}\}:\\
-&amp;\qquad
-\sum_{\substack{v:m_v=m\\t\in I_v}}
-\operatorname{size}(v)
-\le
-\operatorname{CapBytes}_H(m).
-\end{aligned}
-$$</p>
-<p>For every value,
-\(0\le lo_v&lt;hi_v\le\operatorname{CapBytes}_H(m_v)\).
-Overlapping live values in the same memory must have disjoint address ranges.
-The evaluator is total on all bounded syntax. It returns the first named fault
-under a fixed order when elaboration, typing, arithmetic, timing, routing,
-storage, or resource checks fail. Otherwise, it executes the two cycle phases
-above and returns \(\operatorname{Normal}(o)\). Define:</p>
-<p>$$
-\begin{aligned}
-&amp;\operatorname{AllRunsNormal}_{\mathcal B_0,H}(z)\\
-&amp;\quad\Longleftrightarrow\quad
-\forall x\in\mathcal I(P),\;
-\exists o:\\
-&amp;\qquad
-\operatorname{Run}_{\mathcal B_0,H}(z,x)
-=
-\operatorname{Normal}(o).
-\end{aligned}
-$$</p>
-<p>The semantic validity judgment binds a successful elaboration before using any
-duration or demand:</p>
-<p>$$
-\begin{aligned}
-\operatorname{Valid}_{\mathcal B_0,H}(z)
-\equiv{}&amp;
-\exists E:\;
-\operatorname{Elab}_H(z)=\operatorname{Some}(E)\\
-&amp;\land \operatorname{Bounded}(z)\\
-&amp;\land \operatorname{WellTyped}(G)
-\land \operatorname{SingleAssignment}(G)\\
-&amp;\land \operatorname{Acyclic}(G)
-\land \operatorname{ReductionComplete}(G)\\
-&amp;\land \operatorname{ValueRefines}(G,P,E)
-\land \operatorname{TemporalLegal}(z,E)\\
-&amp;\land \operatorname{ResourceLegal}(z,E)
-\land \operatorname{StorageLegal}(z,E)\\
-&amp;\land \operatorname{RouteLegal}(z,E)
-\land \operatorname{Complete}(z,E)\\
-&amp;\land \operatorname{AllRunsNormal}_{\mathcal B_0,H}(z).
-\end{aligned}
-$$</p>
-<p>\(\operatorname{ReductionComplete}\) requires every output element to contain
-each required reduction index exactly once and no extra term.
-Successful elaboration excludes unsupported operations, shapes, locations, and
-routes. \(\operatorname{AllRunsNormal}\) excludes arithmetic faults.
-\(\operatorname{Complete}\) requires every registered action to issue and
-finish by \(T_{\max}\). Well-formed graphs require every produced value to be
-consumed or declared as an output, so \(\operatorname{last}(v)\) is defined.
-The certificate is evidence for this judgment; it is not part of the
-candidate's meaning.</p>
-<p>There are no hidden stall or arbitration rules in Model Zero. A proposed
-static trace either satisfies the finite constraints or is rejected.
-Completion by \(T_{\max}\) is a bounded safety property, not a theorem about
-general liveness.</p>
-<h3 id="44-behavior-refinement-and-composition">4.4 Behavior, refinement, and composition</h3>
-<p>For input \(x=(A,B)\), the \(L_0\) behavior is:</p>
-<p>$$
-\llbracket P_{M,N,K}\rrbracket(A,B)_{mn}
-=
-\sum_{k=0}^{K-1}A_{mk}B_{kn}.
-$$</p>
-<p>The external observation is termination status and the output matrix.
-Resource occupancy, internal events, traffic, and routes remain safety,
-diagnostic, or cost data.</p>
-<p>Model Zero is deterministic. Every level in one refinement chain uses the
-source domain \(\mathcal I(P_0)\).
-\(\operatorname{Safe}_i(P_i)\) is the conjunction of all
-well-formedness, value, time, route, storage, and resource rules required at
-level \(i\), including normal termination for every input and all inherited
-rules; rules that do not yet apply are true.
-Let
-\(\alpha_{ji}:\mathcal O_j\rightarrow\mathcal O_i\) hide events below level
-\(i\). The total function
-\(\operatorname{Run}_i(P_i,x)\) returns either
-\(\operatorname{Normal}(o_i)\) or a named fault. For any \(j&gt;i\), exact
-refinement is:</p>
-<p>$$
-\begin{aligned}
-P_j\sqsubseteq_{ji} P_i
-\quad\Longleftrightarrow\quad
-&amp;\operatorname{Safe}_j(P_j)
-\land\operatorname{Safe}_i(P_i)\\
-&amp;\land
-\forall x\in\mathcal I(P_0):
-\exists o_j\in\mathcal O_j,\;
-o_i\in\mathcal O_i:\\
-&amp;
-\operatorname{Run}_j(P_j,x)=\operatorname{Normal}(o_j)\\
-&amp;\land
-\operatorname{Run}_i(P_i,x)=\operatorname{Normal}(o_i)\\
-&amp;\land
-\alpha_{ji}
-(o_j)=o_i.
-\end{aligned}
-$$</p>
-<p>The certificate checker must satisfy:</p>
-<p>$$
-\begin{aligned}
-&amp;\operatorname{Check}_i(P_i,P_{i+1},\pi_i)
-=\operatorname{accept}\\
-&amp;\qquad\Longrightarrow
-P_{i+1}\sqsubseteq_{i+1,i}P_i.
-\end{aligned}
-$$</p>
-<p>For three levels, vertical refinement composes when the projections compose:</p>
-<p>$$
-\begin{aligned}
-&amp;P_2\sqsubseteq_{21}P_1
-\land P_1\sqsubseteq_{10}P_0\\
-&amp;\land
-\alpha_{10}\circ\alpha_{21}=\alpha_{20}\\
-&amp;\qquad\Longrightarrow
-P_2\sqsubseteq_{20}P_0.
-\end{aligned}
-$$</p>
-<p>A later floating-point profile must replace equality with a defined error
-relation and prove how error bounds compose.</p>
-<p>Horizontal composition uses a different theorem. A component summary is:</p>
-<p>$$
-\operatorname{Summary}(Q)=
-\left(
-I_Q,O_Q,W_Q,D_Q,S_Q
-\right),
-$$</p>
-<p>where \(I_Q\) and \(O_Q\) are interface values, \(W_Q\) is the set of written
-values, \(D_Q(r,t)\) is per-cycle resource demand, and \(S_Q(m,t)\) is storage
-occupancy. A source component \(P\) also declares
-\(\operatorname{Rely}(P,p)\), the values accepted at input port \(p\), and
-\(\operatorname{Guarantee}(P,p)\), the values it may produce at output port
-\(p\). Each component refinement carries an interface projection \(\beta_k\)
-from \(Q_k\) ports and values to \(P_k\) ports and values. Let \(\omega_P\)
-wire source ports and \(\omega_Q\) wire their lower-level counterparts. Use
-the abbreviations:</p>
-<p>$$
-\mathbf Q=(Q_1,Q_2),
-\qquad
-\mathbf P=(P_1,P_2),
-\qquad
-\boldsymbol\beta=(\beta_1,\beta_2).
-$$</p>
-<p>For Model Zero,
-\(\operatorname{Compat}_H
-(\mathbf Q;\mathbf P,\boldsymbol\beta,\omega_Q,\omega_P)\)
-holds exactly when:</p>
-<ul>
-<li>the two source and lower interfaces are type- and shape-compatible;</li>
-<li>\(\operatorname{WireSound}
-  (\omega_Q,\omega_P,\boldsymbol\beta)\) holds;</li>
-<li>\(\operatorname{ContractCompatible}(P_1,P_2,\omega_P)\) holds;</li>
-<li>\(W_{Q_1}\cap W_{Q_2}=\varnothing\);</li>
-<li>\(G_1\cup_{\omega_Q}G_2\) is acyclic;</li>
-<li>the combined timing, routes, and storage are legal; and</li>
-<li>for every resource \(r\) and cycle \(t\),
-  \(D_{Q_1}(r,t)+D_{Q_2}(r,t)
-  \le\operatorname{CapToken}_H(r)\).</li>
-</ul>
-<p>For every source wire from output port \(p\) to input port \(q\),
-\(\operatorname{ContractCompatible}\) requires:</p>
-<p>$$
-\operatorname{Guarantee}(P_{\mathrm{src}},p)
-\subseteq
-\operatorname{Rely}(P_{\mathrm{dst}},q).
-$$</p>
-<p>\(\operatorname{InterfaceCompatible}\) requires connected values to have equal
-types and shapes. \(\operatorname{WireSound}\) uses \(\beta_1,\beta_2\) to
-require every lower-level wire to project to its declared source wire and
-forbids an undeclared cross-wire.
-\(\operatorname{CombinedTemporalLegal}\) requires every cross-component
-consumer to start after its producer completes. These premises make both the
-source and lower compositions well-defined. Let \(\beta_{\parallel}\) be the
-interface projection induced by \(\beta_1,\beta_2,\omega_Q,\omega_P\) after
-connected internal ports are hidden. The horizontal theorem to prove is:</p>
-<p>$$
-\begin{aligned}
-&amp;Q_1\sqsubseteq_{\beta_1}P_1
-\land
-Q_2\sqsubseteq_{\beta_2}P_2\\
-&amp;\land
-\operatorname{Compat}_H
-\left(
-\mathbf Q;\mathbf P,\boldsymbol\beta,\omega_Q,\omega_P
-\right)\\
-&amp;\qquad\Longrightarrow
-Q_1\parallel_{\omega_Q} Q_2
-\sqsubseteq_{\beta_{\parallel}}
-P_1\parallel_{\omega_P} P_2.
-\end{aligned}
-$$</p>
-<p>This theorem covers disjoint writers and static resources only. Shared-state
-protocols, dynamic arbitration, and blocking communication are outside Model
-Zero.</p>
-<p>Lowering introduces a constraint, but a constraint is not itself semantics.
-Let \(\gamma_i(P_i)\) be the concrete designs represented at level \(i\). A
-valid lowering narrows the set:</p>
-<p>$$
-\gamma_{i+1}(P_{i+1})
-\subseteq
-\gamma_i(P_i),
-$$</p>
-<p>and the certificate proves that the narrowing preserves the upper contract.
-This makes the role of a hardware-specific prior precise:</p>
-<ol>
-<li>a choice narrows the search space;</li>
-<li>semantics defines what the choice means; and</li>
-<li>a certificate shows that the choice remains correct.</li>
-</ol>
-<h3 id="45-exact-counts-and-empirical-cost">4.5 Exact counts and empirical cost</h3>
-<p>For an accepted candidate:</p>
-<p>$$
-\begin{aligned}
-\tau
-&amp;=
-\operatorname{Trace}_H(z)\\
-&amp;=
-\left\{
-\left(
-\begin{array}{c}
-a,s_a,e_a,u_a,b_a,\\
-\lambda_A(a),\rho(a)
-\end{array}
+\bigcup_{x,\xi}
+\operatorname{Reach}(T_z;x,\xi)
 \right)
-\;\middle|\;
-a\in A_G
-\right\}.
-\end{aligned}
+\right|.
 $$</p>
-<p>Fixed folds over this trace determine exact structural quantities:</p>
+<p>The abstraction cannot be chosen after seeing the result or collapse states
+without a preservation proof. Raw state count is still not a complete measure
+of verification difficulty, so checker time, peak memory, and certificate size
+are measured separately. (D_B(\mathcal T)) and (V_\varphi(z)) describe two
+different sources of complexity:</p>
 <p>$$
-K_{\mathrm{exact}}(\tau)
-=
-\left(
-\begin{array}{c}
-\#\mathrm{operations},\;
-\mathrm{bytes},\;
-\mathrm{link\ uses},\\
-\mathrm{peak\ storage},\;
-\mathrm{resource\ cycles},\\
-\mathrm{abstract\ makespan}
-\end{array}
-\right).
+\boxed{
+\text{many candidate designs}
+\;\not\Rightarrow\;
+\text{many runtime alternatives in each design}
+}
 $$</p>
-<p>Each metric has a declared unit: operations, bytes, link-cycles,
-resource-token cycles, storage bytes, or abstract cycles. “Exact” means exact
-relative to the manifest's action granularity and tables, not exact physical
-behavior. The count checker has its own proof goal:</p>
+<p>An optimizer or agent explores (\mathcal Z_B(\mathcal T)). A verifier checks
+one chosen (z). Search and counting cost are reported separately from the
+cost of checking that candidate.</p>
+<h3 id="22-why-static-tensor-dataflow-may-create-this-separation">2.2 Why static tensor dataflow may create this separation</h3>
+<p>Suppose (n) independent tiles may be assigned to (p) compute units. There
+are already:</p>
 <p>$$
-\operatorname{CountCheck}_H(\tau,k)=\operatorname{accept}
-\Rightarrow
-k=K_{\mathrm{exact},H}(\tau).
+p^n
 $$</p>
-<p>An implementation prediction is separate:</p>
+<p>possible mappings, before considering tile shapes, layouts, routes, buffering,
+or schedules. This is a large optimization space.</p>
+<p>After one mapping and schedule are selected, however, the unit, route, and
+start time of each tile can be fixed. For the closed, fixed-latency static
+subclass (z_{\mathrm{static}}), the strong property to prove is:</p>
 <p>$$
 \begin{aligned}
-&amp;\widehat K_\theta
-\left(
-\tau,H_{\mathrm{physical}}
-\right)\\
-&amp;\qquad=
-f_\theta
-\left(
-K_{\mathrm{exact}}(\tau),
-H_{\mathrm{physical}}
-\right).
+\forall x,\;
+\forall e\in\operatorname{Exec}(z_{\mathrm{static}},x),\;
+\forall\tau:\qquad
+\alpha_{\mathrm{ctl}}(e_\tau)=F_{z_{\mathrm{static}}}(\tau).
 \end{aligned}
 $$</p>
-<p>\(\theta\) is calibrated from simulation, synthesis, FPGA measurement, or
-silicon measurement. Each source is reported separately.</p>
-<p>Model Zero legality uses only the exact abstract duration
-\(d_a=d_H(a)\in\mathbb N\) stored in the frozen manifest. Duration intervals
-and robust scheduling are later extensions. A fitted duration
-\(\widehat d_a\) may guide optimization, but it cannot change the formal
-legality result.</p>
-<p>Every parameter is labeled as:</p>
+<p>This quantifies over all executions, including any internal nondeterminism.
+If it holds, changing (x) changes tensor values but not the projected control
+trace, whose branching degree is one. Dynamic environments and runtime
+policies are evaluated with (V_\varphi) instead of this stronger equation.</p>
+<p>This is the proposed source of the separation:</p>
 <ul>
-<li><strong>derived:</strong> proved from an earlier representation;</li>
-<li><strong>selected:</strong> chosen by the optimizer;</li>
-<li><strong>imposed:</strong> required by the target;</li>
-<li><strong>measured:</strong> obtained from an artifact;</li>
-<li><strong>assumed:</strong> not yet validated; or</li>
-<li><strong>learned:</strong> predicted by a statistical model.</li>
+<li>data dependencies are resolved before execution;</li>
+<li>performance choices are encoded as design parameters;</li>
+<li>tensor values are handled symbolically by functional proofs; and</li>
+<li>runtime control does not rediscover the schedule.</li>
 </ul>
-<p>The final receipt preserves these labels.</p>
-<h3 id="46-workflow-and-trust-boundary">4.6 Workflow and trust boundary</h3>
-<p>Proof-carrying code established the useful pattern of an untrusted producer
-supplying evidence to a small checker [R30]. Model Zero applies that pattern to
-co-design:</p>
+<p>This claim needs proof, not intuition. Tensor memories still contain an
+enormous number of possible values. We must prove that erasing those payloads
+does not change future control behavior. Variable latency, data-dependent
+routing, arbitration, sparse execution, faults, and dynamic batching may
+break the property.</p>
+<p>The distinction is therefore not “CPU versus accelerator” or even “control
+flow versus dataflow.” It is:</p>
 <p>$$
-\begin{aligned}
-\text{specify}
-&amp;\rightarrow
-\text{propose}
-\rightarrow
-\text{check}\\
-&amp;\rightarrow
-\text{diagnose}
-\rightarrow
-\text{revise}
-\rightarrow
-\text{evaluate cost}.
-\end{aligned}
+\boxed{
+\text{dependencies fixed at design time}
+\quad\text{versus}\quad
+\text{dependencies discovered at runtime}
+}
 $$</p>
-<p>The proof trusted base contains the formal definitions and the proof
-assistant's kernel. The deployed semantic checker and exact-count folds will be
-extracted from those proved definitions. A separately handwritten checker does
-not satisfy \(\mathrm{H}_2\).</p>
-<p>The executable trusted base also contains the canonical parser, certificate
-decoder, runtime, and the extraction compiler unless a separate refinement
-proof removes one of them. Receipts include the normalized syntax and its hash
-so parsing can be audited.</p>
-<p>The agent, search heuristic, solver whose result can be replayed, reference
-interpreter, learned cost model, and artifact backend are untrusted. If a
-solver result cannot be replayed, that solver is named as part of the trusted
-base. The reference interpreter is an independent test reference; it is not a
-substitute for the checker theorem.</p>
-<p>Acceptance is always relative to the source specification and machine
-manifest. It does not prove that an undocumented physical target matches the
-manifest. The abstract validity theorem is unconditional for the supplied
-manifest. Any claim that a physical target conforms to that manifest remains a
-separate, explicit assumption.</p>
-<p>Each receipt hashes the specification, manifest, candidate, and checker. It
-records the decision, closed obligations, external assumptions, exact counts,
-and cost-model provenance. A rejection includes a failed predicate and a
-counterexample when available; an acceptance has no open deductive obligation.
-A separate freeze receipt records \(C(K_0)\), the kernel and checker hashes,
-the registered limits, and every file permitted to vary when a new machine
-manifest is added.</p>
-<h2 id="5-research-method">5. Research method</h2>
-<h3 id="51-evidence-required-for-each-claim">5.1 Evidence required for each claim</h3>
-<table>
-<thead>
-<tr>
-<th>Claim</th>
-<th>Required evidence</th>
-<th>Primary endpoint</th>
-<th>Pass rule</th>
-<th>Allowed conclusion</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>\(\mathrm{H}_1\): four-primitive frozen-kernel portability</td>
-<td>Registered kernel and manifest complexity; one held-out machine family</td>
-<td>\(C(K_0)\), \(C_H(H)\); semantic or checker-code changes after freeze</td>
-<td>The four primitive forms and manifest schema remain fixed; all complexity is reported; the held-out machine adds records but no value semantics, predicates, or executable code</td>
-<td>One four-primitive kernel transfers across two Model Zero machine families</td>
-</tr>
-<tr>
-<td>\(\mathrm{H}_2\): sound composition</td>
-<td>Machine-checked theorems, extracted checker, and end-to-end certificates</td>
-<td>Proof status and explicit premises</td>
-<td>Every proof goal closes; each external premise is checked or stated</td>
-<td>Soundness conditional on the stated premises</td>
-</tr>
-<tr>
-<td>\(\mathrm{H}_3\): useful semantic richness</td>
-<td>Independent canonical enumeration or a checkable counting certificate</td>
-<td>Full-space richness \(S_{K_0}^{\mathrm{all}}\); \(10\%\)-near-optimal richness \(S_{K_0}^{(0.10)}\)</td>
-<td>At least \(90\%\) of held-out tasks have \(2^{20}\) distinct designs and \(2^{10}\) designs within \(10\%\) of the kernel optimum; aliases and pure schedule slack count once</td>
-<td>The four-primitive kernel induces a large space and at least \(2^{10}\) distinct near-optimal designs on that task fraction</td>
-</tr>
-<tr>
-<td>\(\mathrm{H}_4\): optimization sufficiency</td>
-<td>Independently certified kernel and reference optima under one exact objective</td>
-<td>Maximum held-out representation regret, \(\max_t r_{K_0}(t,B)\)</td>
-<td>Every kernel design maps into the reference space, every held-out family contains a reference-only design, and worst-case representation regret is at most \(5\%\)</td>
-<td>The kernel loses at most \(5\%\) of attainable objective quality in the frozen study</td>
-</tr>
-<tr>
-<td>\(\mathrm{H}_5\): agent search</td>
-<td>Controlled runs scored against the exact kernel optimum</td>
-<td>Fraction of runs returning a checked design with agent search regret at most \(0.10\)</td>
-<td>The lower 95% family-clustered confidence bound on that fraction is at least \(0.80\) at budget \(B^\ast\)</td>
-<td>The fixed agent usually finds a design within \(10\%\) of the kernel optimum</td>
-</tr>
-<tr>
-<td>\(\mathrm{H}_6\): cost validity</td>
-<td>Whole design families held out from one frozen backend</td>
-<td>Exact-count mismatch; backend-completion rate; conditional held-out latency median absolute percentage error</td>
-<td>Zero count mismatches; the lower 95% confidence bound on completion is at least \(0.95\); the upper 95% confidence bound on conditional median error is at most \(0.10\)</td>
-<td>Completion and latency accuracy for that backend and sampled domain</td>
-</tr>
-</tbody>
-</table>
-<p>No experiment may replace the evidence type in this table. In particular,
-mutation testing cannot replace a soundness proof, and a theorem cannot replace
-physical measurement.</p>
-<h3 id="52-common-protocol">5.2 Common protocol</h3>
-<p>Before the test set is exposed, the study will freeze:</p>
+<h2 id="3-what-computing-history-teaches-us">3. What computing history teaches us</h2>
+<p>Earlier models solved different problems by preserving different facts.</p>
 <ul>
-<li>the manifest, kernel, grammar, task generator, objectives, and canonical
-  design schema;</li>
-<li>the kernel-size accounting rules, expression bounds, richness threshold, regret
-  tolerances, and invalid-output rule;</li>
-<li>the formal semantics, checker, and independent reference implementation;</li>
-<li>the named hand-designed, compiler, and solver baselines, their versions, and
-  a reproducible task-eligibility rule;</li>
-<li>development, validation, and test families;</li>
-<li>mutation operators and legal boundary cases;</li>
-<li>prompts, model and API versions, tool and token budgets, and randomization;</li>
-<li>solver, compiler, simulator, synthesis, and proof-tool versions;</li>
-<li>timeout, retry, crash, and missing-run rules; and</li>
-<li>primary endpoints, power analysis, confidence intervals, and rules for
-  interpreting multiple secondary tests.</li>
+<li><strong>Lovelace</strong> separated an operation, its operands, and the mechanism that
+  performs it. This made implementation a distinct object of study [R1].</li>
+<li><strong>Turing</strong> made mechanical computation mathematically precise and independent
+  of one machine. Universality answered what can be computed, not what is
+  physically efficient [R2].</li>
+<li><strong>Shannon</strong> connected Boolean meaning to relay construction and
+  simplification. This joined semantics, synthesis, and physical economy
+  [R3].</li>
+<li><strong>Von Neumann and his collaborators</strong> faced limited equipment, storage, and
+  reliability. They treated architecture as a hierarchy and made time–equipment
+  tradeoffs explicit [R4, R5].</li>
+<li><strong>General-purpose ISAs and dynamic ILP machines</strong> preserved one software
+  contract across varied programs while recovering parallelism at runtime.
+  This flexibility placed more performance behavior in mutable machine state
+  [R6, R7].</li>
+<li><strong>Systolic and tensor systems</strong> exploited regular dependencies by exposing
+  spatial mapping, communication, and schedules [R8, R9].</li>
 </ul>
-<p>Task families, not only parameter combinations, are held out. Every run keeps
-raw inputs, outputs, trajectories, logs, artifact hashes, and failure status.
-Compilation, synthesis, timeout, and measurement failures remain in the
-results.</p>
-<p>The study keeps three kinds of exhaustive evidence separate:</p>
+<p>The lesson is methodological. A useful computation model is not the most
+general one. It preserves the structure needed for its target problem and
+removes distinctions that do not matter. Our task is to discover whether
+tensor workloads admit such a boundary; we should not assume it in advance.</p>
+<p>Modern tensor compilers expose schedules and mappings [R10, R11]. Verified
+tensor compilers prove selected transformations [R12]. Timing-aware hardware
+languages check resource and cycle contracts [R13]. Formal accelerator
+interfaces connect software-visible behavior to implementations [R14].
+Architecture tools search mappings and estimate cost [R15]. The open question
+is not whether static schedules are easier to analyze. Synchronous dataflow
+and resource-aware hardware languages already exploit fixed dependencies
+[R16, R17]. This proposal instead asks whether one frozen contract can jointly
+measure design richness, representation loss, and per-design verification cost
+as decisions move among manufacture, compile, and runtime, while carrying
+replayable evidence across the full chain.</p>
+<h2 id="4-question-ii-can-one-contract-compose-the-cross-layer-priors">4. Question II: Can one contract compose the cross-layer priors?</h2>
+<p>A DSL is not the starting point. The order should be:</p>
+<p>$$
+\text{physical prior}
+\rightarrow
+\text{mathematical model}
+\rightarrow
+\text{checked contract}
+\rightarrow
+\text{DSL}.
+$$</p>
+<h3 id="41-priors-from-each-layer">4.1 Priors from each layer</h3>
+<p>A <strong>prior</strong> here means known structure that introduces design variables,
+constraints, or both. It need not be a literal law of physics.</p>
+<p>The <strong>workload prior</strong> includes typed tile operations, bounded iteration
+domains, producer–consumer dependencies, tensor shapes, and whether values can
+change control.</p>
+<p>The <strong>system-software prior</strong> includes legal graph transformations, numerical
+formats, tiling and fusion rules, memory allocation, synchronization, runtime
+services, and the mapping and scheduling choices exposed by the compiler.</p>
+<p>The <strong>architecture prior</strong> includes:</p>
+<ul>
+<li>finite compute units, storage, ports, and links;</li>
+<li>spatial topology and legal routes;</li>
+<li>locality and data-movement cost;</li>
+<li>pipeline latency, issue rate, and synchronization;</li>
+<li>resource sharing, capacity, and conflict rules; and</li>
+<li>the operations and data types implemented directly.</li>
+</ul>
+<p>The <strong>physical-implementation prior</strong> includes wire delay, clocking, area,
+power, energy, reliability, fabrication technology, and layout rules. Some of
+these can be checked by implementation tools; others require calibrated models
+or measurement. They must not be silently treated as theorems.</p>
+<p>These priors enter through three commitment stages:</p>
 <ol>
-<li><strong>Symbolic input proof:</strong> the value-refinement theorem quantifies over every
-   matrix whose elements are in \(V_0\). It does not enumerate
-   \(5^{M K+K N}\) input pairs.</li>
-<li><strong>Exact design search:</strong> \(U_0^{\mathrm{legal}}\) and the kernel-induced
-   space are exhaustively enumerated, or independently checked certificates
-   prove canonical class counts, inclusion, and both optima for each registered
-   confirmatory task. If any required computation does not finish, the related
-   claim is marked insufficient.</li>
-<li><strong>Full micro-test:</strong> a smaller manifest uses
-   \((M,N,K)=(1,1,2)\),
-   \(V_\mu=\{-1,0,1\}\),
-   \(N_{\max}=8\), and \(T_{\max}=8\), with one tiny configuration from each
-   machine family. All \(81\) input pairs and all bounded reference and kernel
-   candidates are enumerated.</li>
+<li><strong>Manufacture time:</strong> microarchitecture design creates the resource fabric
+   — compute units, memories, pipelines, ports, and links. These resources are
+   fixed after fabrication.</li>
+<li><strong>Compile time:</strong> the compiler transforms the dataflow graph and chooses
+   mostly static tiling, placement, storage, routing, and scheduling on that
+   fabric.</li>
+<li><strong>Runtime:</strong> the runtime allocates what remains dynamic, such as requests,
+   queues, batches, arbitration, and load balance.</li>
 </ol>
-<h3 id="53-kernel-size-semantic-richness-and-optimization-sufficiency">5.3 Kernel size, semantic richness, and optimization sufficiency</h3>
-<p>The two implementations of \(U_0\) define legal and faulty design classes
-without calling the proposed kernel or checker. The kernel, size-accounting
-rule, canonicalizer, and checker are frozen after development on one target
-family. The second target is then encoded once using only manifest records.</p>
-<p>The kernel-economy gate is:</p>
+<p>Hardware design is therefore resource <strong>construction</strong>; compiler and runtime
+design are two stages of resource <strong>allocation</strong>. They can be modeled together
+because they act on the same operations, capacities, dependencies, and costs.
+Every decision (q) should state when it becomes fixed:</p>
+<p>$$
+\kappa(q)
+\in
+\left{
+\text{manufacture},
+\text{compile},
+\text{runtime}
+\right}.
+$$</p>
+<p>The policy (\omega) may itself be selected before execution. Its individual
+allocation actions are runtime decisions. The label (\kappa(q)) applies to
+the value of a decision, not merely to the code that computes it.</p>
+<p>Moving a decision later may improve adaptation to input or load, but it also
+adds mutable control state. Moving it earlier may simplify verification, but
+it can lose performance when runtime conditions vary. The best commitment
+stage is itself a co-design choice.</p>
+<p>At each lowering step, a prior introduces choices and then constrains them.
+Across all choices, the design tree branches. Along one chosen lowering path,
+the represented implementation set narrows:</p>
+<p>$$
+\gamma_{i+1}(x_{i+1})
+\subseteq
+\gamma_i(x_i).
+$$</p>
+<p>The certificate for that step must prove that the narrowing preserves the
+upper-level meaning. This is the formal role of an intermediate
+representation: it is a contract for the new information introduced at that
+layer, not merely a new syntax.</p>
+<p>Let
+(z=(H(h),{c_t,\omega_t}_{t\in\mathcal T}))
+be one accepted joint design from Section 2, and let (I_h) be the artifact
+produced by the named backend (\beta). End-to-end optimization is simply:</p>
+<p>$$
+z^*
+\in
+\arg\min_{z\in\mathcal Z_B(\mathcal T)}
+J(\mathcal T,z).
+$$</p>
+<p>Here (J) is a fixed scalar objective. If weights or budgets are not
+justified, the study reports the Pareto frontier for performance, power, and
+area instead; there is then no single “best PPA” point.
+Physical feasibility inside (\mathcal Z_B(\mathcal T)) must be labeled as
+measured or predicted. A prediction is not a formal physical guarantee.</p>
+<p>Thus hardware contributes both constraints and optimization choices. A wider
+array may expose more parallel schedules but require more area and bandwidth.
+A larger buffer may reduce traffic but increase access energy or cycle time.
+A new interconnect may remove one conflict and create another.</p>
+<h3 id="42-a-joint-design-contract">4.2 A joint design contract</h3>
+<p>Microarchitecture synthesis must use a fixed, typed architecture grammar:</p>
+<p>$$
+h\in\Theta_A,
+\qquad
+H(h)=\Gamma_A(h).
+$$</p>
+<p>The agent may choose component counts, capacities, topology, and compositions
+allowed by (\Gamma_A). It may not invent a new transition rule or change the
+checker for each candidate. Extending the grammar creates a new model version
+with new proof obligations.</p>
+<p>The first model needs these objects:</p>
 <p>$$
 \begin{aligned}
-&amp;\operatorname{Prim}(K_0)
-=
-\left\{
-\begin{array}{c}
-\operatorname{zero},\;
-\operatorname{copy},\\
-\operatorname{transfer},\;
-\operatorname{tile\_mac}
-\end{array}
-\right\}\\
-&amp;\land
-\Delta_{\mathrm{semantics}}=0\\
-&amp;\land
-\Delta_{\mathrm{checker}}=0\\
-&amp;\land
-\Delta_{\mathrm{manifest\ schema}}=0.
+P&amp;=(O,E,\mathrm{Ty}),
+&amp;&amp;\text{the typed tensor operations and dependencies},\
+H(h)&amp;=(R_h,C_h,L_h,\Delta_h),
+&amp;&amp;\text{the machine resources, capacities, links, and timing rules},\
+c&amp;=(\theta,\mu,\lambda,s,\rho),
+&amp;&amp;\text{the compile-time tiles, mapping, storage, schedule, and routes},\
+\omega&amp;=\text{the bounded runtime allocation policy},\
+I_h&amp;=\Gamma_{I,\beta}(H(h)),
+&amp;&amp;\text{the lower-level implementation of the chosen hardware}.
 \end{aligned}
 $$</p>
-<p>after the held-out machine is exposed. \(C(K_0)\) is reported, not hidden
-behind the four-primitive count. The soundness proof and measured checker cost
-determine whether this kernel is actually manageable; no absolute minimality
-is claimed.</p>
-<p>The study reports:</p>
-<ul>
-<li>primitive, proof-rule, parser, elaborator, checker, and total trusted-code
-  size;</li>
-<li>resource, route, table-row, and demand-form counts for each machine
-  manifest;</li>
-<li>each post-freeze code change, which fails \(\mathrm{H}_1\);</li>
-<li>the number and logarithm of canonical legal designs by task;</li>
-<li>inclusion failures and a strict-reference witness;</li>
-<li>kernel and reference optima and their representation regret;</li>
-<li>checking time and memory against state-space size; and</li>
-<li>the effect of removing each primitive on semantic-space size and optimum
-  quality.</li>
-</ul>
-<p>Every kernel-induced class must map into the independent reference:</p>
+<p>Here (h) contains microarchitecture choices such as array dimensions,
+pipeline structure, buffer capacities, bank counts, ports, and network
+topology. (P) states what must be computed, (H(h)) states what the selected
+machine can do, (c) fixes the static software realization, (\omega) governs
+the remaining runtime choices, and (I_h) is an RTL or other executable
+realization. In the strictly static case, (\omega) has only one legal action
+at every step.</p>
+<p>Concurrency, sharing, timing, and conflict are not informal annotations. They
+become constraints. If action (a) starts at (s_a), ends at (e_a), and
+uses (u(a,r,\tau)) units of resource (r), then:</p>
+<p>$$
+\forall r,\tau:\qquad
+\sum_{a:\,s_a\le \tau&lt;e_a}
+u(a,r,\tau-s_a)
+\le C_h(r).
+$$</p>
+<p>For every dependency ((a,b)\in E):</p>
+<p>$$
+s_b\ge e_a.
+$$</p>
+<p>Storage lifetimes, address overlap, routes, and link use receive similar
+finite constraints. One checker connects the software realization to tensor
+meaning:</p>
 <p>$$
 \begin{aligned}
-&amp;\operatorname{Included}(K_0,U_0,t,B)\\
-&amp;\quad\Longleftrightarrow
-\forall g\in\operatorname{Expr}(K_0,t,B):\\
-&amp;\qquad
-\left[
-\exists\pi_g:
-\operatorname{Check}_{K_0}(g,\pi_g)
-=\operatorname{accept}
-\right]\\
-&amp;\qquad\Rightarrow
-\left[
-\begin{array}{l}
-\exists u\in U_0^{\mathrm{legal}}(t),\pi_{\mathrm{eq}}:\\
-\operatorname{EqCheck}(u,g,\pi_{\mathrm{eq}})
-=\operatorname{accept}
-\end{array}
-\right].
-\end{aligned}
-$$</p>
-<p>The reference must also contain at least one design outside the kernel-induced
-space in every held-out task family \(\mathcal F\):</p>
-<p>$$
-\begin{aligned}
-&amp;\forall\mathcal F
-\in\operatorname{Families}(\mathcal T_{\mathrm{test}}),\;
-\exists t\in\mathcal F:\\
-&amp;\qquad
-\mathcal M_{K_0}(t,B)
-\subsetneq
-\mathcal R_0(t).
-\end{aligned}
-$$</p>
-<p>This prevents a circular result in which the “richer” universe is merely
-another encoding of the kernel. Strictness requires exhaustive non-membership
-or a proved invariant of \(K_0\) that a legal reference witness violates. A
-search timeout is insufficient.</p>
-<p>For each task, exact enumeration or a checkable model-counting certificate
-computes \(S_{K_0}^{\mathrm{all}}\) and
-\(S_{K_0}^{(0.10)}\) from Section 2.2. The richness canonicalizer keeps
-meaningful graph, mapping, route, storage, and order-or-overlap differences but
-removes identifier aliases, global time shifts, and pure idle slack.</p>
-<p>The \(20\)-bit full-space threshold means at least \(2^{20}\) distinct
-implementation structures. The \(10\)-bit near-optimal threshold requires at
-least \(2^{10}\) such structures within \(10\%\) of the kernel optimum. These
-are registered engineering tests, not universal definitions of “large.”
-Per-axis value counts and pairwise interaction counts are reported as
-diagnostics, not used as an undefined pass rule.</p>
-<p>The same independent objective \(J_t\) is applied to both spaces. The
-confirmatory \(\mathrm{H}_4\) and \(\mathrm{H}_5\) objective uses only exact
-trace quantities. \(\mathrm{H}_6\)'s median prediction error does not justify a
-claim about optimizer-selected physical optima. Such a claim would require a
-separate uniform-error or selection-regret experiment.
-Before held-out tasks are exposed, the study freezes a baseline registry
-\(\mathcal B_{\mathrm{base}}\): named hand designs, compiler versions, solver
-configurations, and a deterministic rule that says which baseline applies to
-which task. Every admitted valid baseline must normalize into
-\(\mathcal R_0(t)\), and:</p>
-<p>$$
-J_U^*(t)
-\le
-\min_{b\in\mathcal B_{\mathrm{base}}(t)}
-J_t(b).
-$$</p>
-<p>A missing admitted baseline or a violated inequality makes the reference
-evidence insufficient. No AI agent participates in this test.
-The representation test computes:</p>
-<p>$$
-r_{K_0}(t,B)
-=
-\frac{
-J_{K_0}^*(t,B)-J_U^*(t)
-}{
-J_U^*(t)
-}.
-$$</p>
-<p>\(\mathrm{H}_4\) uses one frozen scalar objective. It does not establish
-Pareto-frontier coverage; that would require a separate componentwise
-\(\varepsilon\)-dominance test.</p>
-<p>Primitive ablation is diagnostic, not a claim of absolute minimality. A
-primitive is useful for this benchmark when removing it either prevents a
-target encoding or increases the best attainable cost by more than a
-registered tolerance:</p>
-<p>$$
-\Delta_p(t)
-=
-\frac{
-J_{K_0\setminus\{p\}}^*(t,B)-J_{K_0}^*(t,B)
-}{
-J_{K_0}^*(t,B)
-}.
-$$</p>
-<h3 id="54-formal-proof-and-checker-validation">5.4 Formal proof and checker validation</h3>
-<p>The primary formal result is:</p>
-<p>$$
-\begin{aligned}
-&amp;\operatorname{Check}_{\mathcal B_0,H}(z,\pi)
-=\operatorname{accept}\\
+&amp;\operatorname{Check}_{\mathrm{SW}}(P,H,c,\omega,\pi_S)
+=\operatorname{accept}\
 &amp;\qquad\Longrightarrow
-\operatorname{Valid}_{\mathcal B_0,H}(z).
+\operatorname{Obs}(H,c,\omega)=\operatorname{Obs}(P)
+\;\land\;
+\operatorname{Safe}(H,c,\omega).
 \end{aligned}
 $$</p>
-<p>A proof assistant will check this theorem and the stated vertical and
-horizontal composition rules. The deployed core checker is extracted from
-this proved definition. If the reverse implication is claimed, it requires a
-separate proof and a certificate-existence argument.</p>
-<p>The implementation is also tested against an independently written interpreter
-and enumerator. The registered fault classes include:</p>
-<ol>
-<li>a missing reduction tile;</li>
-<li>a duplicated product;</li>
-<li>use before transfer completion;</li>
-<li>overwrite of a live value;</li>
-<li>buffer overflow;</li>
-<li>port or bank overuse;</li>
-<li>pipeline issue-rate violation;</li>
-<li>illegal layout or route;</li>
-<li>arithmetic overflow;</li>
-<li>a cyclic event graph;</li>
-<li>overlapping use of an exclusive resource; and</li>
-<li>an unregistered machine or cost assumption.</li>
-</ol>
-<p>Mutants start from independently validated legal designs. Equivalent mutants
-are removed. Legal near-boundary cases measure false rejection. The initial
-target is at least 100 independent base designs per fault class. If several
-mutants share a base design, the analysis treats that base as one cluster.
-False-acceptance and false-rejection counts and 95% cluster-aware confidence
-bounds are reported for each fault class, not only as one pooled number.
-Held-out mutation families and independently authored faults reduce
-co-development bias. These tests measure suite sensitivity; they do not prove
-soundness beyond the theorem.</p>
-<h3 id="55-cost-model-validation">5.5 Cost-model validation</h3>
-<p>The first confirmatory study uses one frozen implementation backend. Other
-simulators, FPGA measurements, or physical devices are separate studies, not
-pooled evidence.</p>
-<p>After a pilot fixes variance and sample size, the study will hold out whole
-shape, dataflow, array, or memory families. A family is a generation template,
-not a single parameter setting. The confirmatory set will contain at least 20
-disjoint held-out families and about 100 held-out configurations within a
-larger set of at least 300 attempted configurations. The family is the
-resampling unit. Synthesis, simulation, timing, and measurement failures remain
-in the completion analysis.</p>
-<p>The proposed model is compared with:</p>
-<ul>
-<li>a constant predictor;</li>
-<li>operation-count and byte-count linear models;</li>
-<li>a roofline-style model;</li>
-<li>an applicable analytical tool such as Timeloop, MAESTRO, or Accelergy; and</li>
-<li>cycle-level simulation when available.</li>
-</ul>
-<p>An independently written trace counter checks every quantity called exact.
-For measured latency \(y_j&gt;0\) and prediction \(\widehat y_j\), define:</p>
+<p>Another checker connects the generated hardware to its architectural
+contract:</p>
 <p>$$
 \begin{aligned}
-\operatorname{APE}_j
-&amp;=
-\frac{\left|\widehat y_j-y_j\right|}{y_j},\\
-\operatorname{MdAPE}
-&amp;=
-\operatorname{median}_j
-\operatorname{APE}_j.
+&amp;\operatorname{Check}_{\mathrm{HW}}(I,H,\pi_H)
+=\operatorname{accept}\
+&amp;\qquad\Longrightarrow
+\operatorname{Impl}(I)\sqsubseteq H.
 \end{aligned}
 $$</p>
-<p>The confirmatory test has two gates. First, it requires zero exact-count
-mismatches and a lower one-sided 95% family-clustered bootstrap confidence
-bound of at least \(0.95\) for backend completion. Second, among completed
-artifacts, it requires an upper one-sided 95% family-clustered bootstrap bound
-of at most \(0.10\) on \(\operatorname{MdAPE}\). Accuracy is reported as
-conditional on completion, and it cannot pass if the completion gate fails.
-A failed attempt is counted as a completion failure; it is not assigned an
-invented prediction error.</p>
-<p>The 90th-percentile error, rank correlation, top-\(k\) selection regret, and
-prediction-interval coverage and width are secondary diagnostics. Energy and
-area require separate registered endpoints. The 10% latency bound is an
-engineering target for one frozen backend, not a universal constant.</p>
-<h3 id="56-controlled-agent-study">5.6 Controlled agent study</h3>
-<p>Every condition is scored against the same independently defined task and
-exact kernel optimum. Conditions \(\mathrm{C}_1\) through \(\mathrm{C}_3\)
-produce the same typed Model Zero artifact. A fixed adapter maps
-\(\mathrm{C}_0\) output into that artifact. Thus every primary condition is
-scored inside the same accepted canonical space
-\(\mathcal M_{K_0}(t,B)\). The conditions are:</p>
-<ul>
-<li>\(\mathrm{C}_0\): a conventional native format with compiler, simulator, and
-  test feedback; the fixed adapter emits a \(G_0\) candidate;</li>
-<li>\(\mathrm{C}_1\): the typed model with the same conventional feedback but no
-  semantic checker feedback;</li>
-<li>\(\mathrm{C}_2\): model representation with binary accept or reject;</li>
-<li>\(\mathrm{C}_3\): model representation with structured diagnostics.</li>
-</ul>
-<p>An adapter failure or an output outside \(\mathcal M_{K_0}(t,B)\) in
-\(\mathrm{C}_0\) counts as an invalid design. The adapter, output grammars,
-tools, and exact information initially shown in each condition are frozen
-before testing. Direct RTL generation is retained only as a descriptive
-real-world baseline because it changes the output language, abstraction level,
-and search space at once; it is not part of the causal contrast. Random search,
-a conventional optimizer, and the exact kernel optimum provide lower,
-practical, and upper search references.</p>
-<p>The study fixes the agent version, prompt information, context policy,
-temperature, task order, and one matched budget at a time. Budget-response
-curves report tokens, tool calls, wall time, and monetary cost. Tasks are held
-out by family, and each run starts with an independent context.</p>
-<p>Let \(\widehat g_t\) be the expression returned by the agent. If the checker
-accepts it, define its canonical design
-\(\widehat c_t=\operatorname{Can}(\widehat g_t)\) and agent search regret:</p>
+<p>The refinement relation must preserve every fact used by the software proof,
+including timing, backpressure, faults, and synchronization. Under that
+compatibility condition, the checks compose:</p>
 <p>$$
-r_A(t)
-=
-\frac{
-J_t(\widehat c_t)-J_{K_0}^*(t,B)
-}{
-J_{K_0}^*(t,B)
-}.
-$$</p>
-<p>An invalid or missing \(\widehat g_t\) has \(r_A(t)=+\infty\). At the primary
-budget \(B^\ast\), define:</p>
-<p>$$
-Y_{10}
-=
-\mathbf 1
-\left[
 \begin{aligned}
-&amp;
-\exists\pi:
-\operatorname{Check}_{K_0}(\widehat g_t,\pi)
-=\operatorname{accept}\\
-&amp;\land r_A(t)\le 0.10
+&amp;\operatorname{Check}<em _mathrm_HW="\mathrm{HW">{\mathrm{SW}}(P,H,c,\omega,\pi_S)
+=\operatorname{accept}
+\;\land\;
+\[-2pt]
+&amp;\operatorname{Check}</em>(I,H,\pi_H)
+=\operatorname{accept}
+\;\land\;
+\operatorname{Compatible}(I,H,c,\omega)\
+&amp;\qquad\Longrightarrow
+\operatorname{Obs}
+\left(
+\operatorname{Exec}(I,c,\omega)
+\right)
+=
+\operatorname{Obs}(P)
+\;\land\;
+\operatorname{Safe}(I,c,\omega).
 \end{aligned}
-\right].
+$$}</p>
+<p>If the second proof is not yet available, conformance between (I) and (H)
+is an open obligation, not an implicit fact. Such a candidate may support an
+architecture-level pilot, but it does not count as end-to-end accepted.
+Requiring this proof is how synthesizing a new GPU microarchitecture becomes
+part of the same checked hierarchy.</p>
+<h3 id="43-small-and-complete-for-a-declared-scope">4.3 Small and complete for a declared scope</h3>
+<p>“Complete” should mean <strong>closed for the stated guarantee</strong>: every fact that
+can change functional behavior or checked resource legality is derived from
+the model or listed as an external assumption. It does not mean a complete
+theory of all hardware.</p>
+<p>“Minimal” should also be relative to a workload and a goal. Report model
+complexity as the tuple:</p>
+<p>$$
+\mathbf C(K)
+=
+\left(
+#\text{primitives},
+#\text{rules},
+#\text{assumptions},
+\text{trusted bytes}
+\right).
 $$</p>
-<p>\(\mathrm{H}_5\) passes only if the lower 95% family-clustered confidence bound
-on \(\Pr(Y_{10}=1\mid\mathrm C_3)\) is at least \(0.80\). This endpoint combines
-correctness and quality. A reliable agent that returns poor designs does not
-pass.</p>
-<p>A paired bootstrap samples whole task families, then tasks within each family.
-A pilot-based power simulation fixes the final sample size before the test set
-is opened. The full-interface contrast
-\(\Pr(Y_{10}=1\mid\mathrm C_3)-\Pr(Y_{10}=1\mid\mathrm C_0)\) tests whether the
-kernel and checker help relative to conventional feedback. The contrast
-\(\mathrm C_3-\mathrm C_2\) isolates structured diagnostics;
-\(\mathrm C_2-\mathrm C_1\) isolates binary checking; and
-\(\mathrm C_1-\mathrm C_0\) compares the typed representation with the native
-format. These are secondary mechanism tests.</p>
-<p>The study reports representation regret and agent search regret separately.
-If \(\mathrm{H}_4\) fails, a low \(r_A\) shows only that the agent searched a
-weak space well. \(\mathrm{H}_4\) and \(\mathrm{H}_5\) therefore remain claims
-about the frozen exact surrogate. \(\mathrm{H}_6\) evaluates prediction
-accuracy but does not turn either result into a physical-optimality claim.</p>
-<h3 id="57-from-the-proof-pilot-to-llm-relevant-motifs">5.7 From the proof pilot to LLM-relevant motifs</h3>
-<p>Model Zero is a proof pilot for exact tiled matrix multiplication. Passing it
-does not establish that the kernel is sufficient for an LLM system.</p>
-<p>Before making a broader tile-dominant LLM claim, a new versioned kernel must
-repeat the six gates on three bounded motifs:</p>
+<p>Let (r_{\mathrm{rep}}(K)) measure performance lost against a richer
+independent design space. We seek models that are Pareto-minimal in
+(\mathbf C(K)), subject to:</p>
+<p>$$
+\operatorname{Sound}(K),
+\qquad
+r_{\mathrm{rep}}(K)\le\varepsilon,
+\qquad
+\operatorname{VerifyCost}(K)\le B_{\mathrm v}.
+$$</p>
+<p>Thus the smallest model is not the one with the fewest words. It is the
+simplest model that remains sound, verifiable, and rich enough to contain good
+designs. The earlier four-primitive kernel—zero, copy, transfer, and tile
+multiply–accumulate—is one candidate for this experiment, not yet a justified
+answer.</p>
+<h2 id="5-the-first-experiment">5. The first experiment</h2>
+<p>We should begin with a structure experiment, not an arbitrary end-to-end GPU.</p>
+<h3 id="51-test-the-separation">5.1 Test the separation</h3>
+<p>Use one bounded tiled matrix-multiplication family and one parameterized GPU
+template. Construct a static baseline in which operation durations, mappings,
+routes, and schedules are fixed by the candidate. Then vary three axes
+independently:</p>
 <ol>
-<li>a fused matrix–activation–matrix block, including materialized and fused
-   intermediates;</li>
-<li>bounded causal prefill attention, including materialized and streamed
-   schedules; and</li>
-<li>bounded decode attention with explicit KV-cache append, layout, prefetch,
-   and reduction choices.</li>
+<li><strong>Manufacture-time choices:</strong> vary array dimensions, pipeline depth,
+   local-memory size and banking, port counts, interconnect topology, and
+   supported tile operations.</li>
+<li><strong>Compile-time choices:</strong> add tile shapes, layouts, placements, buffering,
+   routes, and static schedules.</li>
+<li><strong>Runtime choices:</strong> add variable latency, arbitration, bounded queues,
+   dynamic batching, and data-dependent routing one feature at a time.</li>
 </ol>
-<p>Activation, exponential, reciprocal, rounding, exceptional values, and
-accumulation order must have fixed semantics. Searching over numerical
-approximations is a later experiment.</p>
-<p>Further extensions add sparse expert routing, dynamic batching and arbitration,
-bounded queues, multi-device collectives, shared-link contention, and failures.
-Each new primitive creates a new kernel version with a new semantics, proof
-obligation, independent reference extension, and untouched holdout. A failed
-holdout cannot be repaired and reused as confirmatory evidence.</p>
-<h2 id="6-risks-research-gates-and-claim-boundary">6. Risks, research gates, and claim boundary</h2>
-<h3 id="61-main-risks">6.1 Main risks</h3>
-<table>
-<thead>
-<tr>
-<th>Failure</th>
-<th>Conclusion</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>The held-out target needs new semantics or checker code</td>
-<td>The frozen-kernel claim fails; version the kernel and use a new holdout.</td>
-</tr>
-<tr>
-<td>The slack-normalized space is small or has too few near-optimal designs</td>
-<td>The richness claim fails even if the checker is sound.</td>
-</tr>
-<tr>
-<td>A kernel design has no valid reference match</td>
-<td>The inclusion or independent-reference implementation is wrong.</td>
-</tr>
-<tr>
-<td>Representation regret exceeds \(0.05\)</td>
-<td>The kernel is too restrictive for the registered objective.</td>
-</tr>
-<tr>
-<td>Local proofs do not compose</td>
-<td>Strengthen the interface or require an explicit whole-system check.</td>
-</tr>
-<tr>
-<td>Checking is too slow</td>
-<td>Report the usable bounded subset; finiteness alone does not imply practical speed.</td>
-</tr>
-<tr>
-<td>Held-out cost prediction fails</td>
-<td>Keep exact counts; reject or revise the empirical model.</td>
-</tr>
-<tr>
-<td>The agent has high search regret</td>
-<td>Keep the kernel and checker if useful with enumerators or solvers; reject the agent-search claim.</td>
-</tr>
-</tbody>
-</table>
-<h3 id="62-research-gates">6.2 Research gates</h3>
-<p>The project advances only after each gate:</p>
-<ol>
-<li>define the finite task domain, independent reference, canonical schema, and
-   exact objective;</li>
-<li>build and prove the kernel on one development machine;</li>
-<li>freeze the kernel, checker, size-accounting rule, richness threshold, and
-   regret tolerances;</li>
-<li>encode the held-out machine without semantic or checker changes;</li>
-<li>prove inclusion, count canonical designs, and certify both optima;</li>
-<li>validate one implementation-cost backend before reporting empirical physical
-   predictions;</li>
-<li>run the powered agent study; and</li>
-<li>repeat the process on new untouched transformer-motif holdouts before making
-   an LLM-level claim.</li>
-</ol>
-<h3 id="63-what-success-would-and-would-not-establish">6.3 What success would and would not establish</h3>
-<p>Success would establish, for Model Zero:</p>
+<p>The first two axes enlarge the static joint design space. The third tests when
+a performance mechanism turns design-time freedom into runtime state. Where
+possible, the same allocation decision should be implemented once statically
+and once dynamically. This directly measures the cost and benefit of moving
+its commitment stage.</p>
+<p>Two matched controls isolate the claimed separation:</p>
 <ul>
-<li>one reported four-primitive kernel frozen across two abstract machine
-  families, with no target-specific semantic or checker code;</li>
-<li>a sound checker for finite scheduled tensor actions;</li>
-<li>a replayable certificate chain from matrix meaning to timed architectural
-  actions;</li>
-<li>at least \(2^{20}\) slack-normalized designs, including at least \(2^{10}\)
-  designs within \(10\%\) of the kernel optimum, on at least \(90\%\) of
-  held-out tasks;</li>
-<li>at most \(5\%\) representation regret under one exact registered objective;</li>
-<li>the registered probability that one fixed agent finds a checked design
-  within \(10\%\) of the kernel optimum; and</li>
-<li>held-out accuracy bounds for one versioned cost model and backend.</li>
+<li>add unchosen architecture or compiler alternatives while holding the checked
+  candidate (z) fixed; this should increase counting or search cost, not
+  (V_\varphi(z)) or the cost of checking (z);</li>
+<li>hold the number of available designs fixed while adding runtime state and
+  branching inside (z); this should change (V_\varphi(z)) and checking
+  cost, not design richness.</li>
 </ul>
-<p>It would not establish:</p>
+<p>For each point, measure:</p>
 <ul>
-<li>an absolutely minimal or complete theory of hardware;</li>
-<li>that all LLM computation is regular or covered by Model Zero;</li>
-<li>a fundamental CPU–accelerator distinction;</li>
-<li>correctness of generated RTL, gates, layout, or silicon;</li>
-<li>physical timing, energy, or area without measurement;</li>
-<li>general liveness, failures, unbounded workloads, or dynamic distributed
-  execution;</li>
-<li>model-training convergence or application-level ML accuracy; or</li>
-<li>global optimality outside an independently solved finite design universe.</li>
+<li>the number of canonical designs and canonical near-optimal designs;</li>
+<li>design counting and search time;</li>
+<li>projected reachable control states and runtime branching;</li>
+<li>checker or model-checker time, peak memory, and certificate size;</li>
+<li>best attainable cost relative to a richer independent model;</li>
+<li>RTL or simulator conformance to the selected hardware contract;</li>
+<li>measured performance, power, area, timing, and energy for generated hardware
+  points; and</li>
+<li>whether two equal-shape inputs can produce different control traces.</li>
 </ul>
-<p>The current research state is incomplete. No theorem, checker, benchmark,
-physical measurement, or agent result has yet been produced.</p>
-<h3 id="64-conclusion">6.4 Conclusion</h3>
-<p>The proposal tests whether tile regularity changes a basic design tradeoff.
-The four primitive forms and trusted checker remain fixed, while composition
-and parameters create a large optimization space. Every accepted point remains
-verifiable because it is built from the same rules.</p>
-<p>The agent supplies search capacity, not correctness. The decisive tests are
-whether the kernel retains near-optimal designs and whether the agent can find
-them. If either fails, the two regret terms show whether the problem is the
-representation or the search procedure. If Model Zero succeeds, the same gates
-must be repeated on bounded transformer motifs before the claim is extended to
-LLM infrastructure.</p>
+<p>For a positive objective (J), representation loss is:</p>
+<p>$$
+r_{\mathrm{rep}}(K)
+=
+\frac{J_K^<em>-J_U^</em>}{J_U^*},
+$$</p>
+<p>where (J_K^<em>) is the best design in the small model and (J_U^</em>) is the best
+design in a richer independent model.</p>
+<p>The experiment supports the hypothesis only if increasing design-time freedom
+creates many meaningful and near-optimal designs without a corresponding
+increase in per-design runtime branching or verification cost.</p>
+<h3 id="52-test-the-cross-layer-contract">5.2 Test the cross-layer contract</h3>
+<p>For every selected design ((H,c,\omega)), follow one receipt through:</p>
+<p>$$
+P
+\longrightarrow
+(H,c,\omega)
+\longrightarrow
+I.
+$$</p>
+<p>The receipt must show which facts were derived, selected, imposed, measured,
+or assumed. The software certificate must replay against (P) and (H). The
+hardware certificate must replay against (H), or the missing conformance
+proof must remain visibly open. Physical cost must come from a named,
+versioned backend.</p>
+<p>This test asks whether the priors really compose. It fails if a lower layer
+changes upper-level meaning, if a correctness-relevant constraint disappears
+between layers, or if an empirical physical claim is presented as a formal
+guarantee.</p>
+<p>It weakens or falsifies the hypothesis if:</p>
+<ul>
+<li>good performance requires substantial runtime choice;</li>
+<li>verification cost grows with unchosen design alternatives;</li>
+<li>tensor payloads affect future control after they are projected away;</li>
+<li>the small model has large representation loss;</li>
+<li>competitive microarchitectures cannot be expressed or generated; or</li>
+<li>target-specific semantics must be hidden inside machine tables or unchecked
+  assumptions.</li>
+</ul>
+<p>Thresholds should be set after a pilot and frozen before the confirmatory
+study. No numerical success claim is made here.</p>
+<h2 id="6-the-role-of-agentic-ai">6. The role of Agentic AI</h2>
+<p>Agentic AI is useful only after the model defines a sound search space:</p>
+<p>$$
+\boxed{
+\text{fallible high-capacity proposer}
+\;+\;
+\text{small deterministic verifier}
+}
+$$</p>
+<p>The agent proposes (H), (c), (\omega), and possibly (I). It does not
+define their meaning, change the rules, or approve its own result. The software
+checker validates (c) and (\omega) against (P) and (H); the hardware
+checker validates (I) against (H). Search quality and representation
+quality must be measured separately. A poor agent may fail to find a good
+design in a good space. A restrictive model may contain no good design,
+regardless of the agent.</p>
+<p>Formal legality and physical prediction must also remain separate:</p>
+<p>$$
+\text{proved correctness under }H
+\neq
+\text{accuracy of }H\text{ for a physical chip}.
+$$</p>
+<p>Latency, energy, area, and physical timing require calibration against
+simulation, synthesis, FPGA measurements, or silicon.</p>
+<h2 id="7-claim-boundary-and-next-step">7. Claim boundary and next step</h2>
+<p>This proposal does not claim that all tensor computing is static, that CPUs
+cannot be verified, or that four primitives are sufficient. It targets bounded
+compute-heavy regions whose control and communication may be fixed before
+execution. Dynamic batching, sparse expert routing, KV-cache management,
+collectives, faults, and variable-latency memory may need a different or
+larger model.</p>
+<p>The immediate next step is to build the smallest finite experiment that plots
+four quantities separately:</p>
+<p>$$
+\begin{array}{c}
+\text{joint software–hardware design richness},\
+\text{verification-relevant runtime state and branching},\
+\text{per-design verification cost},\
+\text{measured physical quality}.
+\end{array}
+$$</p>
+<p>Only if those curves separate should we invest in a full DSL, proof stack,
+general GPU generator, or agent benchmark. The current research state is
+therefore deliberately incomplete: the central contribution is a falsifiable
+question about the structure of tensor computation and its physical machines.
+Per-design verification may still grow with the size of the selected hardware.
+The claim is independence from unchosen alternatives, not constant checking
+cost for arbitrarily large machines.</p>
 <h2 id="references">References</h2>
 <p>[R1] Ada Lovelace, “Notes” in <em>Sketch of the Analytical Engine Invented
 by Charles Babbage</em>, 1843.
@@ -2064,166 +654,51 @@ Entscheidungsproblem,” 1936–1937.
 <p>[R3] Claude E. Shannon, “A Symbolic Analysis of Relay and Switching
 Circuits,” 1938.
 <a href="https://tubes.mit.edu/6S917/_static/2025/resources/shannon38.pdf">PDF</a></p>
-<p>[R4] Warren S. McCulloch and Walter Pitts, “A Logical Calculus of the
-Ideas Immanent in Nervous Activity,” 1943.
-<a href="https://doi.org/10.1007/BF02478259">DOI</a></p>
-<p>[R5] Arthur W. Burks, Herman H. Goldstine, and John von Neumann,
+<p>[R4] Arthur W. Burks, Herman H. Goldstine, and John von Neumann,
 <em>Preliminary Discussion of the Logical Design of an Electronic Computing
 Instrument</em>, 1946/1947.
 <a href="https://albert.ias.edu/entities/publication/49465635-0aa6-4299-921b-98c70c876e51">IAS archive</a></p>
-<p>[R6] John von Neumann, “The General and Logical Theory of Automata,”
+<p>[R5] John von Neumann, “The General and Logical Theory of Automata,”
 Hixon Symposium lecture, 1948.
 <a href="https://www.vordenker.de/ggphilosophy/jvn_the-general-and-logical-theory-of-automata.pdf">PDF</a></p>
-<p>[R7] M. V. Wilkes and J. B. Stringer, “Micro-programming and the Design
-of the Control Circuits in an Electronic Digital Computer,” 1953.
-<a href="https://doi.org/10.1017/S0305004100028322">DOI</a></p>
-<p>[R8] Edward A. Lee and David G. Messerschmitt, “Synchronous Data Flow,”
-1987.
-<a href="https://ptolemy.berkeley.edu/publications/papers/87/synchdataflow/">Paper page</a></p>
-<p>[R9] Rajeev Alur and David L. Dill, “A Theory of Timed Automata,” 1994.
-<a href="https://www.cis.upenn.edu/~alur/TCS94.pdf">PDF</a></p>
-<p>[R10] Jonathan Ragan-Kelley et al., “Halide: A Language and Compiler for
-Optimizing Parallelism, Locality, and Recomputation in Image Processing
-Pipelines,” 2013.
-<a href="https://doi.org/10.1145/2491956.2462176">DOI</a></p>
-<p>[R11] Tianqi Chen et al., “TVM: An Automated End-to-End Optimizing
-Compiler for Deep Learning,” 2018.
-<a href="https://www.usenix.org/conference/osdi18/presentation/chen">USENIX</a></p>
-<p>[R12] Lianmin Zheng et al., “Ansor: Generating High-Performance Tensor
-Programs for Deep Learning,” 2020.
-<a href="https://www.usenix.org/conference/osdi20/presentation/zheng">USENIX</a></p>
-<p>[R13] Chris Lattner et al., “MLIR: Scaling Compiler Infrastructure for
-Domain Specific Computation,” 2021.
-<a href="https://research.google/pubs/mlir-scaling-compiler-infrastructure-for-domain-specific-computation/">Google Research</a></p>
-<p>[R14] OpenXLA, “StableHLO Specification,” accessed 2026-07-26.
-<a href="https://openxla.org/stablehlo/spec">Specification</a></p>
-<p>[R15] Yakun Sophia Shao et al., “Aladdin: A Pre-RTL,
-Power-Performance Accelerator Simulator Enabling Large Design Space
-Exploration of Customized Architectures,” 2014.
-<a href="https://vlsiarch.eecs.harvard.edu/publications/aladdin-pre-rtl-power-performance-accelerator-simulator-enabling-large-design">Paper page</a></p>
-<p>[R16] Angshuman Parashar et al., “Timeloop: A Systematic Approach to
-DNN Accelerator Evaluation,” 2019.
-<a href="https://research.nvidia.com/publication/2019-03_timeloop-systematic-approach-dnn-accelerator-evaluation">NVIDIA Research</a></p>
-<p>[R17] Hyoukjun Kwon et al., “Understanding Reuse, Performance, and
-Hardware Cost of DNN Dataflows: A Data-Centric Approach,” 2019.
-<a href="https://research.nvidia.com/publication/2019-10_understanding-reuse-performance-and-hardware-cost-dnn-dataflows-data-centric">NVIDIA Research</a></p>
-<p>[R18] John Yang et al., “SWE-agent: Agent-Computer Interfaces Enable
-Automated Software Engineering,” 2024.
-<a href="https://arxiv.org/abs/2405.15793">arXiv</a></p>
-<p>[R19] Mingjie Liu et al., “ChipNeMo: Domain-Adapted LLMs for Chip
-Design,” 2023.
-<a href="https://arxiv.org/abs/2311.00176">arXiv</a></p>
-<p>[R20] Shailja Thakur et al., “VeriGen: A Large Language Model for
-Verilog Code Generation,” 2023.
-<a href="https://arxiv.org/abs/2308.00708">arXiv</a></p>
-<p>[R21] Mingjie Liu et al., “VerilogEval: Evaluating Large Language
-Models for Verilog Code Generation,” 2023.
-<a href="https://github.com/NVlabs/verilog-eval">Repository</a></p>
-<p>[R22] Yao Lu et al., “RTLLM: An Open-Source Benchmark for Design RTL
-Generation with Large Language Model,” 2023.
-<a href="https://arxiv.org/abs/2308.05345">arXiv</a></p>
-<p>[R23] Shailja Thakur et al., “AutoChip: Automating HDL Generation Using
-LLM Feedback,” 2023.
-<a href="https://arxiv.org/abs/2311.04887">arXiv</a></p>
-<p>[R24] Yonggan Fu et al., “GPT4AIGChip: Towards Next-Generation AI
-Accelerator Design Automation via Large Language Models,” 2023.
-<a href="https://arxiv.org/abs/2309.10730">arXiv</a></p>
-<p>[R25] Sean A. Blocklove et al., “Chip-Chat: Challenges and
-Opportunities in Conversational Hardware Design,” 2023.
-<a href="https://verificationacademy.com/forums/uploads/short-url/hv4m31iwKciCxQsGiKuhwRHYW3G.pdf">PDF</a></p>
-<p>[R26] Siyuan Feng et al., “TensorIR: An Abstraction for Automatic
-Tensorized Program Optimization,” 2023.
-<a href="https://doi.org/10.1145/3575693.3576933">DOI</a></p>
-<p>[R27] Seongwon Bang et al., “SMT-Based Translation Validation for
-Machine Learning Compiler,” 2022.
-<a href="https://doi.org/10.1007/978-3-031-13188-2_19">DOI</a></p>
-<p>[R28] Xavier Leroy, “A Formally Verified Compiler Back-end,” 2009.
-<a href="https://arxiv.org/abs/0902.2137">arXiv</a></p>
-<p>[R29] Nuno P. Lopes et al., “Alive2: Bounded Translation Validation for
-LLVM,” 2021.
-<a href="https://web.ist.utl.pt/nuno.lopes/pubs.php?id=alive2-pldi21">Paper page</a></p>
-<p>[R30] George C. Necula, “Proof-Carrying Code,” 1997.
-<a href="https://doi.org/10.1145/263699.263712">DOI</a></p>
-<p>[R31] Yuka Ikarashi et al., “Exo 2: Growing a Scheduling Language,”
-ASPLOS, 2025.
-<a href="https://doi.org/10.1145/3669940.3707218">DOI</a></p>
-<p>[R32] Yuka Ikarashi et al., “Exocompilation for Productive Programming
-of Hardware Accelerators,” 2022.
-<a href="https://people.csail.mit.edu/yuka/pdf/exo_pldi2022_full.pdf">PDF</a></p>
-<p>[R33] Rachit Nigam et al., “Predictable Accelerator Design with
-Time-Sensitive Affine Types,” 2020.
-<a href="https://arxiv.org/abs/2004.04852">arXiv</a></p>
-<p>[R34] Thomas Bourgeat et al., “The Essence of Bluespec: A Core Language
-for Rule-Based Hardware Design,” 2020.
-<a href="https://adam.chlipala.net/papers/KoikaPLDI20/">Paper page</a></p>
-<p>[R35] MIT CSAIL, “Kami: A Modular Deductive Hardware Verification
-Platform.”
-<a href="https://www.csail.mit.edu/research/kami-modular-deductive-hardware-verification-platform">Project page</a></p>
-<p>[R36] Rachit Nigam et al., “Calyx: A Compiler Infrastructure for
-Accelerator Generators,” 2021.
-<a href="https://arxiv.org/abs/2102.09713">arXiv</a></p>
-<p>[R37] Yannan Nellie Wu et al., “Accelergy: An Architecture-Level Energy
-Estimation Methodology for Accelerator Designs,” 2019.
-<a href="https://accelergy.mit.edu/paper.pdf">PDF</a></p>
-<p>[R38] Bo-Yuan Huang et al., “Instruction-Level Abstraction: A Uniform
-Specification for System-on-Chip Verification,” 2019.
-<a href="https://doi.org/10.1145/3282444">DOI</a></p>
-<p>[R39] Bo-Yuan Huang et al., “Application-Level Validation of
-Accelerator Designs Using a Formal Software/Hardware Interface,” 2024.
-<a href="https://doi.org/10.1145/3639051">DOI</a></p>
-<p>[R40] Amanda Liu et al., “Verified Tensor-Program Optimization via
-High-Level Scheduling Rewrites,” 2022.
-<a href="https://doi.org/10.1145/3498717">DOI</a></p>
-<p>[R41] Amanda Liu et al., “A Verified Compiler for a Functional Tensor
-Language,” 2024.
-<a href="https://doi.org/10.1145/3656390">DOI</a></p>
-<p>[R42] Rachit Nigam, Pedro Henrique Azevedo de Amorim, and Adrian
-Sampson, “Modular Hardware Design with Timeline Types,” 2023.
-<a href="https://doi.org/10.1145/3591234">DOI</a></p>
-<p>[R43] Rachit Nigam, Ethan Gabizon, Edmund Lam, and Adrian Sampson,
-“Correct and Compositional Hardware Generators,” 2024 preprint,
-arXiv:2401.02570v1.
-<a href="https://arxiv.org/abs/2401.02570v1">arXiv v1</a></p>
-<p>[R44] Caleb Kim et al., “Unifying Static and Dynamic Intermediate
-Languages for Accelerator Generators,” 2024.
-<a href="https://doi.org/10.1145/3689790">DOI</a></p>
-<p>[R45] Jianhong Zhao, Jinhui Kang, and Yongwang Zhao, “K-CIRCT: A
-Layered, Composable, and Executable Formal Semantics for CIRCT Hardware
-IRs,” 2024 preprint.
-<a href="https://arxiv.org/abs/2404.18756">arXiv</a></p>
-<p>[R46] Mathieu Fehr et al., “First-Class Verification Dialects for
-MLIR,” 2025.
-<a href="https://doi.org/10.1145/3729309">DOI</a></p>
-<p>[R47] Kezhi Li et al., “FormalRTL: Verified RTL Synthesis at Scale,”
-2026 preprint.
-<a href="https://arxiv.org/abs/2603.08738">arXiv</a></p>
-<p>[R48] Pei-Huan Tsai et al., “HSCO-Bench: An Agent-Driven End-to-End
-Hardware-Software Co-design Benchmark for Systems-on-Chip,” 2026
-preprint.
-<a href="https://arxiv.org/abs/2605.19399">arXiv</a></p>
-<p>[R49] Robert M. Tomasulo, “An Efficient Algorithm for Exploiting
-Multiple Arithmetic Units,” 1967.
-<a href="https://doi.org/10.1147/rd.111.0025">DOI</a></p>
-<p>[R50] H. T. Kung, “Why Systolic Architectures?” 1982.
-<a href="https://doi.org/10.1109/MC.1982.1653825">DOI</a></p>
-<p>[R51] Norman P. Jouppi et al., “In-Datacenter Performance Analysis of a
-Tensor Processing Unit,” 2017.
-<a href="https://research.google/pubs/in-datacenter-performance-analysis-of-a-tensor-processing-unit/">Google Research</a></p>
-<p>[R52] John L. Hennessy and David A. Patterson, “A New Golden Age for
-Computer Architecture,” 2019.
-<a href="https://doi.org/10.1145/3282307">DOI</a></p>
-<p>[R53] Gene M. Amdahl, Gerrit A. Blaauw, and Frederick P. Brooks Jr.,
+<p>[R6] Gene M. Amdahl, Gerrit A. Blaauw, and Frederick P. Brooks Jr.,
 “Architecture of the IBM System/360,” 1964.
 <a href="https://doi.org/10.1147/rd.82.0087">DOI</a></p>
-<p>[R54] RISC-V International, “The RISC-V Instruction Set Manual, Volume
-I: Unprivileged Architecture,” 20250508 edition, accessed 2026-07-26.
-<a href="https://docs.riscv.org/reference/isa/v20250508/unpriv/intro.html">Specification</a></p>
-<p>[R55] Intel, “Advanced Matrix Extensions Intrinsics,” accessed
-2026-07-26.
-<a href="https://www.intel.com/content/www/us/en/developer/articles/code-sample/advanced-matrix-extensions-intrinsics-functions.html">Reference</a></p>
-<script type="text/javascript" async
+<p>[R7] Robert M. Tomasulo, “An Efficient Algorithm for Exploiting Multiple
+Arithmetic Units,” 1967.
+<a href="https://doi.org/10.1147/rd.111.0025">DOI</a></p>
+<p>[R8] H. T. Kung, “Why Systolic Architectures?” 1982.
+<a href="https://doi.org/10.1109/MC.1982.1653825">DOI</a></p>
+<p>[R9] Norman P. Jouppi et al., “In-Datacenter Performance Analysis of a
+Tensor Processing Unit,” 2017.
+<a href="https://research.google/pubs/in-datacenter-performance-analysis-of-a-tensor-processing-unit/">Google Research</a></p>
+<p>[R10] Jonathan Ragan-Kelley et al., “Halide: A Language and Compiler for
+Optimizing Parallelism, Locality, and Recomputation,” 2013.
+<a href="https://doi.org/10.1145/2491956.2462176">DOI</a></p>
+<p>[R11] Siyuan Feng et al., “TensorIR: An Abstraction for Automatic
+Tensorized Program Optimization,” 2023.
+<a href="https://doi.org/10.1145/3575693.3576933">DOI</a></p>
+<p>[R12] Amanda Liu et al., “Verified Tensor-Program Optimization via
+High-Level Scheduling Rewrites,” 2022.
+<a href="https://doi.org/10.1145/3498717">DOI</a></p>
+<p>[R13] Rachit Nigam, Pedro Henrique Azevedo de Amorim, and Adrian
+Sampson, “Modular Hardware Design with Timeline Types,” 2023.
+<a href="https://doi.org/10.1145/3591234">DOI</a></p>
+<p>[R14] Bo-Yuan Huang et al., “Application-Level Validation of Accelerator
+Designs Using a Formal Software/Hardware Interface,” 2024.
+<a href="https://doi.org/10.1145/3639051">DOI</a></p>
+<p>[R15] Angshuman Parashar et al., “Timeloop: A Systematic Approach to DNN
+Accelerator Evaluation,” 2019.
+<a href="https://research.nvidia.com/publication/2019-03_timeloop-systematic-approach-dnn-accelerator-evaluation">NVIDIA Research</a></p>
+<p>[R16] Edward A. Lee and David G. Messerschmitt, “Synchronous Data Flow,”
+1987.
+<a href="https://ptolemy.berkeley.edu/publications/papers/87/synchdataflow/">Paper page</a></p>
+<p>[R17] Rachit Nigam et al., “Predictable Accelerator Design with
+Time-Sensitive Affine Types,” 2020.
+<a href="https://arxiv.org/abs/2004.04852">arXiv</a></p>
+<p><script type="text/javascript" async
   src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
-</script>
+</script></p>
 </main>
 </body>
 </html>
