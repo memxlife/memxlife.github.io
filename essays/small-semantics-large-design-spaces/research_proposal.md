@@ -1,911 +1,420 @@
-# Verified Freedom in Tensor Computing
-
-**Toward a Constructive Theory of Software–Hardware Co-Design**
-
-Tensor computing has become the computational foundation of modern AI, but its
-systems are still designed through abstractions inherited from a different
-computational era.
-The general-purpose stack was organized around stable instruction interfaces
-and programs whose future control, memory accesses, and parallelism often
-became known only as they ran. Modern AI exposes a different structure: bulk
-operations, multidimensional dependencies, and data reuse are frequently
-visible before execution, while a narrower class of uncertainty—shapes,
-request arrivals, routing, latency, and failure—remains genuinely dynamic.
-
-This change invites more than another compiler or accelerator. It invites a
-constructive theory of tensor computing: a model that connects what an AI
-program means to how software schedules it, how hardware realizes it, and how
-physical resources constrain it.
-
-Such a theory must not make the system artificially static. Hardware
-organization is fixed at manufacture. Many mappings are fixed during
-compilation. Concrete shapes and load may become known only at launch.
-Batching, allocation, routing, and scheduling may still need to adapt while the
-system runs. The problem is to place each decision at the stage where its
-information becomes available, then make the remaining runtime freedom both
-useful and efficiently verifiable.
-
-The hypothesis is that this structure can separate two complexities that
-general-purpose systems often entangle: a vast space of implementation choices
-and a smaller, typed space of runtime behaviors that correctness must cover.
-Establishing that hypothesis creates two connected scientific problems. At the
-computation layer, we must discover which tensor-computing restrictions make
-the separation real. At the implementation layer, we need a model that
-preserves software and hardware physical priors across abstraction boundaries,
-so decisions made at manufacture, compile, launch, and runtime can be optimized
-together without breaking correctness.
-
-We propose a **proof-carrying co-design model for tensor computing**. Typed,
-compositional contracts connect program meaning, software decisions, hardware
-resources, runtime actions, implementation refinement, and measured physical
-cost. Because proposal is separated from acceptance, the model can safely
-support powerful search—including LLM-powered agents, reinforcement learning,
-Bayesian optimization, evolutionary methods, and conventional solvers—without
-treating statistical confidence as correctness.
-
-The central question is:
-
-> **Can tensor computing expose a large cross-layer design space, retain the
-> runtime adaptation needed for efficiency, and still make every accepted
-> transformation, implementation, and runtime action verifiable?**
-
-The foundational bet has a direct falsifier. On matched workloads and
-resources, if the runtime freedom needed to approach the unrestricted
-performance frontier cannot be captured by a sound envelope whose checks are
-small relative to the actions being optimized, then this direction fails.
-
-## 1. From instruction-level parallelism to tensor computing
-
-Instruction-level parallelism was an organizing problem of the
-general-purpose era. The processor sees a stream of scalar instructions, but
-future branches, addresses, and dependencies may not be known early enough to
-schedule all useful work statically. Out-of-order execution moves that
-discovery into hardware. Tomasulo-style reservation stations, tags, and
-register renaming encode dependency discovery and scheduling in runtime state
-[R7]. Later processors add speculation, recovery, and increasingly elaborate
-memory-system state.
-
-This does not make CPUs incorrect or impossible to verify. It explains why a
-high-performance implementation admits many histories that are absent from
-the architectural program. Verification at design time must account for those
-histories because it cannot know which branch outcomes, addresses, cache
-events, arbitration outcomes, or latencies a future workload will produce.
-
-Tensor computing begins with a different object. A dense matrix multiplication,
-convolution, or attention region exposes a multidimensional iteration space
-and regular producer–consumer relations. The main performance question is
-often not how to discover independent work, but how to map known work onto
-finite compute, storage, and communication resources. Many mapping choices can
-be fixed early; others remain valuable because they respond to shapes or load.
-
-The design space must not be confused with the accepted or deployed system:
-
-$$
-\mathcal D_{\mathrm{deployed}}(P)
-\subseteq
-\mathcal D_{\mathrm{certified}}(P)
-\subseteq
-\mathcal D_{\mathrm{candidate}}(P).
-$$
-
-An optimizer explores candidate designs. A checker admits the certified
-subset. Deployment selects one or a few certified designs. For a deployed
-design \(z\), let \(\mathcal A_z(s)\) be the candidate runtime actions exposed
-in state \(s\):
-
-$$
-z\in\mathcal D_{\mathrm{deployed}}(P),
-\qquad
-a_t\in\mathcal A_z(s_t),
-\qquad
-s_{t+1}=T_z(s_t,a_t,\eta_t).
-$$
-
-Here \(\eta_t\) contains external events. The geometry of
-\(\mathcal D_{\mathrm{candidate}}(P)\) governs design search. The action set
-\(\mathcal A_z(s)\) governs runtime adaptation. The states reachable under
-those actions govern explicit-state verification. Unselected hardware designs
-are not runtime states, but a runtime scheduler still creates alternatives
-inside the selected design.
-
-The mathematical separation is elementary; the engineering claim is not. We
-must show that the candidate space remains rich, that
-\(\mathcal A_z(s)\) retains the adaptation needed for competitive performance,
-and that its effects can be checked without exploring an uncontrolled state
-space. Search cost, certificate construction, and any family-wide proof may
-still scale with the candidate space; separating them from runtime state does
-not make them free. The objective is not to move everything offline. It is to
-expose exactly where each kind of freedom belongs.
-
-## 2. The verification opportunity in tensor computing
-
-### 2.1 The useful restriction is stronger than “dataflow”
-
-Synchronous dataflow gives the clearest causal example. If every firing of
-actor \(a\) produces and consumes a fixed number of tokens, then the occupancy
-of channel \(e\) after \(k\) firings is
-
-$$
-b_e(k)
-=
-b_e(0)
-+
-\sum_a \Gamma_{e,a}N_a(k).
-$$
-
-Here \(\Gamma_{e,a}\) is the fixed token-rate contribution of actor \(a\) to
-channel \(e\), and \(N_a(k)\) is its firing count. Buffer safety can therefore
-be reduced to arithmetic over firing counts; tensor payload values do not
-enter the occupancy equation. This conservation law does not by itself prove
-that a feasible, bounded, deadlock-free schedule exists; fixed-rate graphs
-admit separate static schedule and buffer analyses for those obligations
-[R10].
-
-Dataflow alone is insufficient. Kahn process networks are deterministic in
-their stream meaning, yet determinacy does not imply finite buffers or a
-statically bounded schedule [R11]. Parks showed that termination and bounded
-scheduling are undecidable for the general model [R12]. The tractability comes
-from restrictions such as fixed or controlled rates, affine iteration domains,
-bounded resources, disciplined effects, and explicit timing—not from drawing
-the program as a graph.
-
-Prior work establishes several separate pieces. Polyhedral models turn affine
-iteration and dependence questions into integer relations and support verified
-code generation [R13]. Pure tensor languages support compositional proofs of
-schedule rewrites and lowering [R14, R15]. Verified high-level synthesis shows
-that an untrusted scheduler can propose a high-performance schedule while a
-small validator checks it [R16]. Wavelet verifies compilation to asynchronous
-dataflow through forward simulation, then proves determinacy and deadlock
-freedom separately; one correct schedule does not establish that every legal
-schedule is correct [R31]. TrainVerify provides direct modern evidence that
-tensor size need not determine equivalence-checking cost: its verified shape
-reduction scales distributed-training plan checks to Llama 3 405B and
-DeepSeek-V3, although it does not verify kernels, buffers, runtime protocols,
-or hardware implementation [R25]. None of these results alone proves that a
-complete system for tensor computing is easy to verify. Together they identify
-a plausible restricted region.
-
-We call such a region a **certified region of tensor computation**. Its
-contract states:
-
-- the tensor operations and numerical observation relation;
-- execution geometry—shape extents, active index sets, routes, and work counts;
-- token rates, dependencies, and memory effects;
-- resource capacities, routes, conflicts, and backpressure rules;
-- latency assumptions and the decisions fixed before runtime; and
-- the residual events that may still vary during execution.
-
-The contract earns its name only when these facts are checked, not merely
-declared.
-
-### 2.2 Payload abstraction requires a proof
-
-Write an execution state as \(s=(q,\gamma,v)\), where \(q\) contains control
-and resource state, \(\gamma\) contains execution geometry, and \(v\) contains
-tensor payloads. Geometry includes extents, active index sets, routes, and work
-counts; it may be fixed for a region or may evolve. A useful abstraction has
-the form
-
-$$
-\alpha_z(q,\gamma,v)
-=
-\bigl(q,\gamma,\rho_z(v)\bigr),
-$$
-
-where \(\rho_z(v)\) is a declared bounded summary of the payload facts that can
-affect control. Let \(S_{0,z}\) and \(\widehat S_{0,z}\) be the concrete and
-abstract initial states, and let \(\varphi\) and \(\widehat\varphi\) be the
-corresponding property interpretations. A sound abstraction must cover initial
-states, simulate transitions on reachable well-formed states, and preserve the
-property being proved. Let \(h_z\) map each concrete event label to its declared
-abstract observation:
-
-$$
-\begin{aligned}
-\alpha_z(S_{0,z})
-&\subseteq
-\widehat S_{0,z},
-\\
-s\xrightarrow{\lambda}_z s'
-&\Longrightarrow
-\alpha_z(s)
-\;\widehat{\xrightarrow{h_z(\lambda)}}_z\;
-\alpha_z(s'),
-\\
-\widehat\varphi\bigl(\alpha_z(s)\bigr)
-&\Longrightarrow
-\varphi(s).
-\end{aligned}
-$$
-
-The abstract transition may over-approximate the concrete one, but proving the
-property on the abstract system must imply it for the concrete system
-[R28, R32]. Setting \(\rho_z(v)=\bot\) only erases payloads syntactically. To
-preserve both control state and observable actions, define
-
-$$
-\mathcal Q_z(s)
-=
-\left\{
-\bigl(h_z(\lambda),\alpha_z(t)\bigr)
-\;\middle|\;
-s\xrightarrow{\lambda}_z t
-\right\}.
-$$
-
-Payload erasure is an exact quotient only if states with the same abstraction
-induce the same labeled abstract successors:
-
-$$
-\alpha_z(s_1)=\alpha_z(s_2)
-\quad\Longrightarrow\quad
-\mathcal Q_z(s_1)=\mathcal Q_z(s_2).
-$$
-
-Exact quotienting is sufficient, not necessary; bounded summaries and
-conservative over-approximation may also be sound. Hardware data-independence
-work gives checkable semantic conditions under which control does not depend on
-particular data values [R33]. It is direct precedent, but its restrictions
-exclude equality-dependent control and arbitrary tensor arithmetic.
-
-This makes the claim measurable rather than verbal. Every field of
-\(\gamma\) and \(\rho_z\) needs declared provenance, and the abstraction and
-precision must be fixed before comparison. A linear summary can still collapse
-an exponential payload-value space, so summary size alone is not the
-falsifier. The relevant test is scaling: if abstract reachability, certificate
-size, or checking time grows with payload volume enough to erase the claimed
-advantage, the hypothesis fails.
-
-Fixed shape is not sufficient: MoE routing can change active work and routes
-while keeping tensor extents fixed. Value-dependent sparsity, addresses,
-retries, and early termination can do the same. Numerical correctness remains
-a separate symbolic or equational proof over \(v\). Concurrent events may be
-collapsed only after proving that they preserve one another’s enabledness and
-commute for the chosen observation; partial-order reduction does not follow
-from parallelism alone [R17]. Likewise, repeated tiles require an induction,
-cutoff, or assume–guarantee rule before one local proof can cover the whole
-array.
-
-The number of explicit states is therefore one useful measurement, not a
-complete theory of verification cost. Certificate size, solver complexity,
-inductive invariants, numerical semantics, and implementation refinement must
-also be measured.
-
-### 2.3 Dynamic shape is sometimes a parameter and sometimes state
-
-Fixed shape is also not necessary. Shape is only one part of execution
-geometry. A shape known at runtime does not destroy the opportunity if the
-resulting geometry is fixed at the boundary of a tensor region rather than
-evolving as part of its control. It can still select a different topology,
-schedule, and trace length, so immutability removes one source of temporal
-change but does not by itself bound proof complexity.
-
-If an invocation receives geometry \(\gamma\) once, a parametric proof may
-cover a family \(\mathcal G\) without enumerating every concrete shape and
-route. For example, a parameterized schedule can establish both semantic
-refinement and buffer safety:
-
-$$
-\begin{aligned}
-\forall \gamma\in\mathcal G:\qquad&
-\operatorname{Exec}(z,\gamma)
-\sqsubseteq P_\gamma,
-\\
-&
-\forall e,k:\quad
-0\le b_e(k,\gamma)\le B_e.
-\end{aligned}
-$$
-
-A runtime guard checks \(\gamma\in\mathcal G\); the symbolic certificate proves
-that every admitted geometry respects buffer capacity \(B_e\) for the supplied
-schedule. Schedule existence and progress remain separate obligations. The
-runtime value becomes an initial parameter if it remains immutable, but the
-cost of proving the whole family must still be measured. Size-dependent array
-types demonstrate that useful shape equalities can be checked parametrically,
-while StableHLO explicitly distinguishes shape polymorphism, bounded dynamism,
-unbounded dynamism, and data-dependent dynamism [R18, R19].
-
-A guard is not enough if a launch-time compiler constructs a new mapping.
-Either the mapping generator must be proved for all \(\gamma\in\mathcal G\),
-or each generated mapping must carry a certificate checked before execution.
-An unbounded geometry also cannot satisfy one finite-capacity guarantee without
-an explicit rejection, partitioning, or spill contract.
-
-Some dimensions evolve but remain structured. KV-cache length during decoding,
-for example, can often be modeled by a monotone recurrence under a declared
-maximum. Such a property may need induction rather than state enumeration.
-Ragged batches can remain parametric if their length vector is fixed at launch,
-although proof and scheduling cost may grow with the number of independent
-lengths. Systems such as PagedAttention show why the runtime layer still
-matters: KV storage grows dynamically and requires block allocation [R26].
-
-The hard case is payload-dependent shape. The output size of a filtering
-operation, expert routing load, speculative-decoding acceptance, or
-sequence termination may depend on computed values. If those sizes change
-allocation, routing, synchronization, or loop bounds, shape has become control
-state, and a payload-free abstraction may fail or require a larger summary.
-Dynamic-network compilers already report that optimization must then account
-for possible paths and shapes [R20]. MegaBlocks makes the corresponding
-physical tradeoff concrete for MoE: dynamic routing otherwise forces token
-dropping or wasteful padding [R27].
-
-Modern language-model systems contain all three cases. The promising object is
-therefore not one globally static graph. It is a hierarchy in which bounded
-dynamic mechanisms select, specialize, and connect parameterized certified
-regions of tensor computation. The research question becomes how much
-dynamism can be expressed through small typed contracts, and how much must
-remain in the verified state.
-
-## 3. A constructive model of computation and implementation
-
-Tensor structure alone does not expose the implementation space. A workload
-graph does not say which fusion is numerically legal, which tile fits a buffer,
-which route avoids a conflict, which hardware operation should exist, or how a
-change in memory banking affects clock period and energy.
-
-Traditional intermediate representations solve an essential engineering
-problem: each layer receives a manageable contract. But lowering also commits
-choices. If one layer discards an alternative or hides a cost, another layer
-cannot recover it. Cross-layer co-design therefore needs neither one flat IR
-nor the removal of abstraction. It needs typed interfaces that preserve the
-facts on which another layer’s decision depends.
-
-A model is constructive in this paper when every accepted computation has a
-path to a resource-bounded implementation, every abstraction edge states what
-must be preserved, and every remaining runtime choice is governed by a checked
-contract.
-
-### 3.1 Physical prior and commitment stage
-
-The hardware prior is the finite resource system:
-
-- compute units and supported operations;
-- memories, capacities, banks, ports, and lifetimes;
-- links, topology, bandwidth, routes, and locality;
-- latency, initiation interval, synchronization, and clock domains;
-- sharing, arbitration, conflicts, backpressure, and failure behavior; and
-- area, timing, energy, and reliability assumptions with provenance.
-
-The software prior is the legal way computation can use that finite system:
-numerical rewrites, tiling and fusion, layout and placement, lifetimes,
-synchronization, scheduling, and the information a runtime policy may observe
-or act upon. Hardware defines possible resources; software structure defines
-which uses of them can be expressed and when a choice can be made.
-
-Hardware design chooses which resources exist. Compilation transforms the
-computation and allocates known work. Launch-time specialization uses concrete
-shapes and the available machine. Runtime policy responds to information that
-arrives during execution. These are commitment stages over one physical
-system, not independent optimization problems.
-
-One label is not enough: a decision may be constrained early but selected
-later. For every choice \(x\), the model therefore records
-
-$$
-\kappa(x)
-=
-\bigl(
-\kappa_{\mathrm{constrain}}(x),
-\kappa_{\mathrm{select}}(x)
-\bigr),
-\qquad
-\kappa_{\mathrm{constrain}}(x)
-\preceq
-\kappa_{\mathrm{select}}(x),
-$$
-
-where the ordered stages are manufacture, compile, launch, and runtime. A
-runtime allocator, for example, is constrained by manufactured capacity but
-selects concrete blocks at runtime.
-
-Moving a decision later may improve adaptation but can enlarge runtime state
-and checking cost. Moving it earlier can simplify execution but lose
-performance under changing conditions. Choosing the commitment stage is itself
-a cross-layer optimization.
-
-Consider autoregressive decoding. Manufacture fixes compute arrays, memory
-banks, ports, and links. Compilation selects tensor layouts and kernel
-families. Launch reveals concrete sequence limits and available devices.
-Runtime forms batches and allocates KV-cache blocks as requests arrive. These
-choices share the same capacities and data movement, yet a conventional staged
-flow optimizes them through separate interfaces. In the proposed model, a
-change in memory banking must update the legal tile family, the launch-time
-capacity certificate, and the runtime allocation envelope through typed
-relations. This is what “cross-layer” means: not one optimizer making every
-decision at once, but one model preserving the consequences of each decision
-across stages.
-
-### 3.2 Runtime optimization inside a verified freedom envelope
-
-The model must not prescribe one complete static schedule. It must define the
-freedom within which a runtime optimizer may act.
-
-Let \(I(s)\) be the invariant that captures semantic progress, dependency
-order, live storage, resource capacity, and other safety facts relevant in
-state \(s\). A runtime optimizer proposes action \(a\) with evidence \(\pi_a\).
-The trusted runtime checker defines the locally accepted subset:
-
-$$
-\begin{aligned}
-\operatorname{Safe}_z(s,a)
-&\Longleftrightarrow
-\exists \pi_a:\;
-\operatorname{Check}_{\mathrm{rt}}(z,s,a,\pi_a)
-=\operatorname{accept},
-\\
-\mathcal A_{\mathrm{safe}}^z(s)
-&=
-\left\{
-a\in\mathcal A_z(s)
-\mid
-\operatorname{Safe}_z(s,a)
-\right\}.
-\end{aligned}
-$$
-
-Invariant preservation alone is too weak: a wrong computation or a permanent
-no-op may preserve buffer bounds. Let \(\sigma_z(s)\) be the corresponding
-specification state. The offline theorem for the checker must establish
-enabledness, safety, and action-level semantic simulation:
-
-$$
-\begin{aligned}
-&
-I(s)\land
-\operatorname{Check}_{\mathrm{rt}}(z,s,a,\pi_a)
-=\operatorname{accept}
-\\
-&\qquad\Longrightarrow
-\operatorname{Enabled}_z(s,a)
-\\
-&\qquad\quad\land\
-\forall \eta\in\mathcal E_z(s,a),\
-\forall s'\in\operatorname{Post}_z(s,a,\eta):
-\\
-&\qquad\qquad
-I(s')
-\land
-\sigma_z(s)
-\xRightarrow{\ell(a,\eta)}_P
-\sigma_z(s').
-\end{aligned}
-$$
-
-Here \(\mathcal E_z(s,a)\) is the declared set of environmental events for
-which the guarantee is claimed. The weak labeled transition
-\(\xRightarrow{\ell(a,\eta)}_P\) means zero or more specification-internal
-steps, the declared observable label, then zero or more internal steps; an
-implementation-internal action uses \(\ell=\tau\). Depending on the semantics,
-an action may form a batch, select a certified kernel, allocate memory blocks,
-schedule independent tiles, choose a legal route, or adjust precision and
-power within explicit error and timing contracts.
-
-Local acceptance is still not permission to compose actions arbitrarily. A
-sequence of individually safe actions can deadlock or starve. A runtime policy
-is admitted only when its complete traces refine the specification and meet a
-progress contract:
-
-$$
-\begin{aligned}
-R\in\mathcal R_{\mathrm{adm}}^z
-\quad\Longleftrightarrow\quad&
-\forall\tau\in
-\operatorname{Traces}(z,R,\mathcal E_z):
-\\
-&
-\sigma_z(\tau)\in\operatorname{Traces}(P)
-\land
-\operatorname{Live}_z(\tau).
-\end{aligned}
-$$
-
-\(\operatorname{Live}_z\) may state fairness, bounded response, deadlines, and
-the required fallback after rejection or an out-of-envelope event. This is a
-supervisory-control problem: expose the largest useful set of actions whose
-closed-loop behavior stays within the legal language [R29]. A finite-prefix
-monitor can enforce safety and bounded-progress obligations, but not arbitrary
-liveness. General liveness therefore needs an offline policy proof, or it must
-be reduced to an enforceable ranking, deadline, or guaranteed fallback
-controller. The same condition rules out infinite internal stuttering.
-
-At runtime, the system should not repeat whole-system model checking. The
-expensive proof establishes the checker and invariant offline. Compile- or
-launch-time specialization supplies certificates, while runtime performs small
-incremental checks over the affected dependencies and resources. Whether that
-check can remain cheap while
-\(\mathcal A_{\mathrm{safe}}^z(s)\) remains large enough for useful adaptation is
-one of the central questions of this research.
-
-This architecture has precedents but not yet the required tensor-computing
-scope. Proof-carrying code separates an untrusted producer from a small proof
-checker [R23]. Shielded reinforcement learning separates a reward-seeking
-policy from a synthesized safety monitor [R24], and supervisory control asks
-for the maximally permissive legal behavior [R29]. None supplies the
-cross-layer resource, timing, numerical, and implementation contracts proposed
-here.
-
-### 3.3 A proof-carrying co-design model for tensor computing
-
-The certified regions introduced in Section 2 are the computation nodes of one
-typed contract graph. Each carries its tensor semantics, execution geometry,
-resource invariant, and runtime freedom envelope. Other nodes describe
-software construction \(C\), architecture \(H\), runtime policy \(R\), and
-lower implementation \(L\); their edges state compatibility or refinement
-with workload semantics \(P\). Thus a transformation or runtime action remains
-valid across layers only when every downstream node preserves the assumptions
-used to admit it. A DSL may construct this graph, but the scientific object is
-the model and its composition rules.
-
-The trusted base consists of the contract semantics, proof kernels, runtime
-checker, and the mechanism that binds a deployed configuration to checked
-parameters. Agents, optimizers, schedulers, code generators, certificate
-producers, and physical cost models need not be trusted. Any timing, energy, or
-reliability fact obtained only by calibration remains an empirical assumption,
-not a theorem.
-
-The architectural assumptions cannot be an informal list assembled after the
-proof. Let
-
-$$
-A=\operatorname{Req}(C,R)
-$$
-
-be the typed functional, resource, temporal, and numerical requirements
-mechanically exposed by the operations used in \(C\) and \(R\). Lowering must
-satisfy contextual refinement:
-
-$$
-\begin{aligned}
-L\sqsubseteq_A H
-\quad\Longleftrightarrow\quad&
-\forall K\in\operatorname{Ctx}(A):
-\\
-&
-\operatorname{Obs}\bigl(K[L]\bigr)
-\preceq_{\mathcal O,\varepsilon}
-\operatorname{Obs}\bigl(K[H]\bigr).
-\end{aligned}
-$$
-
-The observation preorder must account for accepted inputs and refusals,
-finite and infinite traces, output values and allowed numerical error,
-divergence, progress, and timing whenever higher layers rely on them.
-Restricting \(K\) to contexts that satisfy the typed assumptions makes the
-contract explicit. For the software and runtime stack, define
-\(K_{C,R}[-]\equiv\operatorname{Exec}(-,C,R)\). The required inference is
-
-$$
-\begin{aligned}
-K_{C,R}
-&\in\operatorname{Ctx}(A),
-\\
-\operatorname{Exec}(H,C,R)
-&\sqsubseteq P,
-\\
-L
-&\sqsubseteq_A H
-\\
-&\Longrightarrow
-\operatorname{Exec}(L,C,R)\sqsubseteq P.
-\end{aligned}
-$$
-
-This inference is valid only after proving that \(\sqsubseteq_A\) is a
-precongruence for the proposed typed contract language. Interface automata
-establish such substitutivity for a narrower untimed I/O setting [R30]; they
-are precedent, not a proof of the richer tensor relation. The
-\(\operatorname{Exec}(H,C,R)\) premise includes the policy-level runtime
-contract; contextual refinement prevents one layer from silently assuming
-behavior that the next does not provide.
-
-### 3.4 Optimize common cases; prove every admitted case
-
-Let \(\Pi=(C,H,R,L)\) denote a certified cross-stage candidate,
-\(\theta\) a workload instance, \(\mu\) the observed workload distribution,
-and \(J_\beta\) the cost predicted or measured by backend \(\beta\). Let an
-admitted external scenario
-\(\omega_{\mathrm{ext}}\in\Omega_{\mathrm{adm}}^{\mathrm{ext}}\) include
-payloads, geometry, and allowed environment events. Runtime choices,
-nondeterminism, rejection, and fallback remain internal behaviors quantified
-by \(\operatorname{Exec}\). The desired separation is:
-
-$$
-\begin{aligned}
-\underset{\Pi\in\mathcal D_{\mathrm{certified}}}{\operatorname{minimize}}
-\quad&
-\mathbb E_{\theta\sim\mu}
-\left[J_\beta(\Pi,\theta)\right]
-\\
-\text{subject to}\quad&
-\forall\omega_{\mathrm{ext}}\in\Omega_{\mathrm{adm}}^{\mathrm{ext}}:
-\\
-&
-\operatorname{Exec}(\Pi,\omega_{\mathrm{ext}})
-\sqsubseteq_{\mathcal O,\varepsilon}
-P(\omega_{\mathrm{ext}}).
-\end{aligned}
-$$
-
-Performance may be optimized statistically for the shapes and loads that occur
-in practice. Correctness is required for every admitted scenario, under named
-environmental and physical assumptions and the declared observation
-\(\mathcal O\) and numerical tolerance \(\varepsilon\). Formal refinement does
-not prove that the physical cost model \(J_\beta\) is accurate; latency, area,
-and energy claims still require calibration and measurement.
-
-Hybrid Agentic AI may search offline designs, synthesize specialization rules,
-or learn runtime policies. An online optimizer may itself be heuristic or
-learned, but action checking alone is insufficient. Its policy must be proved
-admissible offline, or an enforceable monitor and fallback must keep its
-behavior inside \(\mathcal R_{\mathrm{adm}}^z\). LLM-powered agents need not sit
-on a latency-critical path; they are one possible source of proposals, not the
-semantics or the authority for correctness.
-
-## 4. An unfinished constructive program
-
-Computing history matters here not as ornament, but because each foundational
-model made a previously informal boundary precise. The early pioneers did not
-possess one complete theory of hardware. Von Neumann wrote in 1948 that a
-satisfactory mathematical theory of automata was still distant [R5]. Their
-legacy is a method for building such a theory: identify the problem’s physical
-structure, choose the right abstraction, and preserve a path back to
-construction.
-
-Lovelace separated operations, operands, and the mechanism because a general
-analytical engine had to be understood independently of one calculation [R1].
-Turing made mechanical computation precise because “effective calculation”
-lacked a mathematical definition; universality deliberately abstracted away
-physical economy [R2].
-
-Shannon faced the constructive problem: how can logical meaning be realized
-and simplified as a relay network? His two-way correspondence joined semantics,
-synthesis, and equipment cost [R3]. Von Neumann and his collaborators faced
-scarce equipment, storage, and reliability. They reasoned in terms of
-elementary organs, composition, and time–equipment tradeoffs, while insisting
-that a black-box axiom must ultimately be justified by the physical unit below
-it [R4, R5]. Wilkes then showed that one level’s hardware control could be
-implemented by a lower-level interpreter, making the software–hardware boundary
-movable [R6].
-
-The stable ISA and dynamic ILP answered a later problem: preserve broad
-software compatibility while recovering performance across varied programs.
-Systolic and tensor architectures answered another: turn regular dependence
-and reuse into local communication and high throughput [R8, R9].
-
-The lesson is not to imitate one historical machine. It is to model the
-structure of the new computational problem, preserve exactly the facts needed
-for realization, and make refinement and physical cost explicit. Synchronous
-dataflow, affine programs, verified tensor transformations, formal accelerator
-interfaces, timing-aware hardware types, and validated HLS schedules establish
-important parts of this program [R10, R13–R16, R21, R22]. Abstract
-interpretation provides sound state abstraction [R28]; supervisory control
-formalizes the largest safe closed-loop behavior [R29]; and interface automata
-make environmental assumptions and component guarantees compositional [R30].
-The missing capability is their disciplined composition for tensor computing
-across manufacture, compile, launch, and runtime, while measuring useful
-freedom, checking cost, and physical accuracy together.
-
-## 5. Research agenda: finding the boundary
-
-The theory becomes meaningful only if it identifies where verification remains
-tractable without removing the freedom that produces efficient systems.
-
-### Question 1: Where is the verification boundary?
-
-Construct matched regions of tensor computation with static geometry,
-launch-time symbolic geometry, bounded evolving geometry, and
-payload-dependent geometry. For each, measure reachable abstract state,
-certificate size, checking time, runtime branching, and physical performance.
-Freeze the property, abstraction map, and precision before comparison. The
-decisive result is whether useful dynamism can be represented by parameters or
-compact invariants rather than by payload-dependent state.
-
-### Question 2: How much runtime freedom can be verified cheaply?
-
-For one fixed workload and machine, compare a static schedule, an
-oracle-admissible dynamic policy, and a runtime optimizer constrained by the
-checked envelope. Both dynamic policies must satisfy the same semantic and
-liveness contract; give them the same candidate actions and declare exactly
-what future information the oracle may see. Measure objective quality,
-reachable abstract state, check latency, certificate size, progress
-violations, rejection, and fallback. The envelope succeeds only if it recovers
-useful adaptation while checking remains small relative to the work being
-scheduled. A pilot estimates the acceptable objective gap and checker
-overhead, then freezes both margins before a confirmatory run.
-
-### Question 3: Does the cross-layer model preserve useful designs and proofs?
-
-Define a small independent reference space for tiled matrix multiplication or
-attention. Compare a conventional staged interface with the proof-carrying
-model under exhaustive enumeration. Measure the accepted Pareto frontier and
-representation loss, not syntax count. For each accepted design, check
-computation preservation, resource and timing safety, runtime-envelope
-soundness, and contextual implementation refinement separately. A smaller
-architectural state is not a success if implementation proof dominates or if a
-held-out architecture requires hidden checker semantics.
-
-### Question 4: Can Agentic search exploit the accepted space?
-
-Only after the representation is frozen, compare hybrid Agentic search,
-Bayesian or evolutionary optimization, and other baselines over the **same**
-accepted candidate space and evaluation budget. This tests search efficiency,
-not model expressiveness or correctness.
-
-The direction is weakened or falsified if:
-
-- near-optimal systems for tensor computing consistently require unbounded or
-  cheaply uncheckable runtime freedom;
-- dynamic execution geometry cannot be isolated behind compact parameters,
-  invariants, or bounded runtime contracts;
-- runtime checking overhead removes the performance gained by adaptation;
-- proof cost grows with tensor payload or replication despite the claimed
-  abstraction;
-- the contract graph offers no useful designs beyond a matched staged
-  interface;
-- a held-out architecture requires new checker semantics rather than new
-  parameters and contracts; or
-- physical predictions do not remain calibrated on held-out designs.
-
-### Current claim boundary
-
-Existing work establishes several mechanisms used by this argument, but no
-result yet establishes their proposed composition. We do not yet know whether
-the verified runtime envelope is large enough, whether its checks are cheap
-enough, or whether the cross-layer model retains competitive physical designs.
-This paper defines the research direction and the evidence needed to decide it.
-
-## Conclusion
-
-The opportunity is not that tensor computing is static or small. It is that
-its different forms of complexity may be separated and placed deliberately.
-Some choices belong to design search. Some become known at launch. Some must
-remain adaptive at runtime. They need not all become unchecked machine state.
-
-Search space is not state space, but runtime state cannot be wished away. A
-constructive theory of tensor computing must expose a large cross-layer design
-space, define an efficiently verified envelope for necessary runtime freedom,
-and preserve meaning through physical implementation.
-
-If that theory is possible, it establishes a new division of labor.
-Statistical intelligence explores designs and policies. Formal contracts
-govern what may be accepted. Physical measurement remains the authority on
-efficiency. This is the foundation required for Agentic AI to participate
-responsibly in the construction of future computing systems.
+# Agentic System Design Automation for Tensor Computing
+
+## Introduction
+
+For decades, computer systems were designed primarily for general-purpose applications, whose programs are expressed as control-flow-oriented computations and executed through instruction-set architectures. To manage the resulting optimization and verification complexity, human experts used domain knowledge to divide the system into layers, each with its own representation, constraints, and decision variables. This structure makes design-space exploration tractable because domain-specific optimization methods can focus on smaller, tightly coupled subsets of decisions, while interfaces limit the effects of choices across layers. It also makes verification tractable because correctness obligations can be stated and checked against well-defined layer contracts rather than against the full software–hardware system at once.
+
+Modern AI and machine-learning systems increasingly rely on tensor computing. Their design now faces two simultaneous changes that create an opportunity for cross-layer co-design across software and hardware. First, agentic AI combines the semantic and reasoning capabilities of large language models with stochastic optimization methods—including reinforcement learning, Bayesian optimization, and evolutionary search—and can explore much larger, heterogeneous design spaces spanning software and hardware choices. Second, tensor computing differs fundamentally from control-intensive instruction execution: much of its computation, dependence, data movement, and resource use can be expressed before runtime, while a smaller residual set remains dynamic. Together, these developments may enable a new design paradigm for tensor-computing systems: end-to-end cross-layer optimization across the software–hardware stack.
+
+The program is organized around three linked research questions:
+
+1. **End-to-end modeling.** How can we construct a modeling framework that represents the design space from AI workload semantics through software, compilation, runtime, hardware architecture, and silicon-manufacturing technology, while supporting both optimization and verification?
+
+2. **Agentic exploration.** How can we build an agentic optimization system that learns the internal structure of this heterogeneous design space, identifies important couplings and performance bottlenecks, and improves its exploration strategy over time?
+
+3. **Layered verification.** How can we partition and connect verification across hardware design and fabrication, software and compilation-time mapping, and runtime adaptation, so each stage provides the required assurance within its available time and information?
+
+Together, these questions define one program: the model exposes the design space, the agentic system explores it, and layered verification makes the resulting designs safe to adopt.
+
+## 1. The Tractability Hypothesis and Its Limits
+
+### 1.1 Two Sources of Design Complexity
+
+Cross-layer design presents two different complexity problems. **Optimization complexity** is the cost of finding useful realizations among decisions whose effects may cross software, architecture, and physical implementation. It depends not only on the number of choices, but on how densely they interact, when their consequences become observable, and which choices have already been committed. **Verification complexity** is the cost of establishing that an admitted realization preserves the intended computation, respects finite resources, and remains correct over its allowed executions. The two are related but not identical. The tractability hypothesis therefore requires a separate factorization of each: design choices must have enough structure to guide search, and correctness obligations must have enough structure to be checked without treating every candidate or every payload history as one monolithic state space.
+
+### 1.2 The Layered Bargain
+
+Layering is the traditional bargain for controlling both. Each layer preserves a domain-specific structure—algebra and dependence in a compiler representation, transactions and ordering in a behavioral model, cycle-level causality in RTL, or placement, timing, power, and wiring in physical design. Local optimization can then focus on a smaller set of decisions, and local verification can rely on a narrower contract. The same interface becomes an optimization wall, however, when it hides a consequential choice, cost, or proof assumption. A compiler cannot account for a banking or routing interaction it cannot represent; a lower implementation can invalidate an upper proof when the assumption it must preserve was never exported. Removing the layers does not solve this problem: it discards useful inductive structure and replaces several bounded problems with one untyped, densely coupled space. A viable cross-layer approach must instead preserve layer-native structure while exposing every dependency, cost, and proof assumption that can change a decision elsewhere.
+
+### 1.3 Tensor Structure and Its Preconditions
+
+Tensor computing may make such exposure possible, but not merely because a program contains tensors or is drawn as dataflow. The relevant regions expose stronger structure: operations and numerical observations are declared; multidimensional iteration domains and producer–consumer relations are explicit; shapes, active index sets, or their bounds are fixed or parameterized at a region boundary; dependencies, data rates, addresses, and memory effects are regular or conservatively summarized; and computation, storage, communication, and allowed runtime variation are finite. Fixed-rate dataflow and affine program models show how some scheduling, dependence, and buffer questions can be reduced to structured relations rather than recovered from arbitrary execution histories [R10, R13]. These conditions do not prove tractability; they expose the stable facts on which the two factorizations could be built.
+
+### 1.4 Optimization Tractability and Agentic Exploration
+
+On the optimization side, explicit operations, geometry, dependencies, and resource effects turn fusion, layout, tiling, placement, buffering, routing, replication, recomputation, and pipeline organization into named decisions rather than hidden consequences of lowering. Their scopes and effects define a coupling structure. If most couplings concentrate within smaller groups and the remaining cross-effects can be bounded, the global space may decompose into tightly interacting subspaces. This does not reduce the raw number of combinations; it gives search a structure it can exploit and allows choices to be committed when the required information becomes available. The factorization fails when important interactions appear only after lowering, when physical effects such as placement-dependent timing, congestion, power delivery, temperature, process variation, test, or yield remain hidden, or when visible couplings stay dense across the software–hardware stack.
+
+Agentic methods may exploit this optimization structure. They can propose and backtrack over cross-layer moves, learn which variables interact, accumulate evidence about bottlenecks, and direct evaluation toward promising regions. They cannot create a missing decision variable, recover a proof premise erased by an interface, make a densely coupled space sparse, or turn an illegal candidate into a correct implementation. Representation adequacy and search efficiency are separate questions; model-based constraints and checks, not the search agent, remain the authority for acceptance.
+
+### 1.5 Verification Tractability and Its Limits
+
+On the verification side, fixed or bounded geometry and payload-independent execution effects may permit reasoning over operation semantics, rates, dependence, resource bounds, and declared variation instead of enumerating payload-scale histories. Obligations over these facts can be reused across repeated tensor instances, while a concrete realization leaves a smaller residual set of dynamic behavior to check. TrainVerify provides narrow supporting evidence that shape reduction can make one class of distributed-training plan equivalence checks scale more slowly than tensor size [R25]. The causal claim remains conditional: payload may be abstracted only when it cannot change control, addressing, allocation, routing, synchronization, termination, or the observation being proved.
+
+This verification factorization breaks when payload-dependent expert routing, filtering, sparse indices, or early termination turns shape and work count into runtime state; dynamic-network and mixture-of-experts systems expose this problem directly [R20, R27]. Irregular memory effects, unbounded queues or geometry, unconstrained faults, and value-dependent synchronization can likewise prevent compact summaries or reusable obligations. In these cases, tensor notation has not removed the relevant state; it has only hidden it.
+
+### 1.6 Commitment Stages and Residual Runtime Freedom
+
+The two factorizations are synthesized by distinguishing four spaces. The **candidate space** contains every realization the representation can construct and determines the optimization problem. The **accepted**, or certified, space contains only candidates that satisfy the required semantic, dependency, resource, and implementation conditions. The **deployed space** contains the accepted realizations actually bound to a target and workload context. The **runtime space** contains only the actions and states still permitted inside a deployed realization. Unselected hardware organizations, discarded mappings, and failed candidates belong to design exploration; they are not runtime behaviors that verification must enumerate. Search space is therefore not runtime state space, although either can remain large when the required factorization fails.
+
+### 1.7 The Conditional Tractability Hypothesis
+
+The tractability hypothesis is conditional and falsifiable. It holds only to the extent that consequential choices can be exposed before commitment, their interactions admit useful decomposition, accepted realizations can be checked through bounded obligations, and the remaining runtime freedom can be represented by a compact state and action space. It is not a claim that all tensor systems are static or easy. It is the narrower claim that a sufficiently structured region of tensor computation may support more cross-layer optimization without forcing optimization search and runtime verification into one monolithic problem. End-to-End Modeling therefore bears a concrete burden: preserve the useful structure of each layer while representing the cross-layer choices, couplings, commitments, and proof assumptions needed to make both factorizations real.
+
+## 2. End-to-End Modeling
+
+The purpose of the end-to-end model is to represent the cross-layer design space so optimization can reason over feasible, structured alternatives and correctness conditions can be preserved and checked as a tensor workload is transformed into a physical implementation. The represented object therefore spans tensor semantics, software transformations, compilation and mapping, runtime behavior, hardware architecture, physical implementation, and the semiconductor constraints that bound implementation and operation.
+
+The difficulty is to gain this cross-layer visibility without losing the local structure that makes design and verification manageable. Layer-native models retain the domain-specific semantics, constraints, and reasoning methods needed within each layer, whereas one flat universal model would discard those abstractions and recreate a monolithic search and proof problem. The required composition must therefore preserve each layer’s native structure while exposing the cross-layer choices, dependencies, physical effects, and correctness assumptions that can alter feasibility, objective value, or validity. A credible end-to-end model must satisfy three linked criteria.
+
+**Semantic Fidelity:** Every represented realization must satisfy semantic preservation with respect to the declared tensor-workload meaning: its intended operations, observable results, dependencies, state, communication, and allowed dynamic variation. Software transformations, mappings, runtime choices, and hardware realizations may change how the computation is carried out, but they must remain within the behavior the workload definition permits. Without this continuity of meaning, optimization may improve the wrong computation and later verification has no stable claim to establish.
+
+**End-to-End Sufficiency:** Layer-specific models remain indispensable because each exposes the structure needed for its own decisions while hiding unrelated detail. They become insufficient when a choice, cost, physical constraint, or correctness assumption crosses a boundary. A locally valid transformation may create a requirement another layer cannot represent, a physical limit may invalidate a software mapping, or a lower implementation may violate an assumption on which an upper correctness claim depends. The end-to-end composition must therefore retain the cross-layer facts that can alter configuration feasibility, objective value, or correctness, including an implementation path from workload intent to a technology-specific physical implementation under declared constraints and analysis conditions. This sufficiency must allow alternative configurations and implementations to be constructed and compared, the consequences of a choice or changed assumption to be traced across the stack, and decisions requiring coordination to be distinguished from those that can remain local. It must also make visible when choices become fixed during design or compilation and which behavior legitimately remains adaptive at runtime. Physical costs and operating limits may be empirical or uncertain; that uncertainty can be represented explicitly rather than promoted to a false guarantee. No optimizer or agent can reason about a consequential fact that the modeling framework has erased.
+
+**Selective Compositionality:** End-to-end sufficiency does not require one flat whole-stack abstraction. The composition must preserve the layer-native abstractions and reasoning structure of each layer, expose consequential information through explicit interfaces, and hide internal detail that cannot change another layer's decision or assurance claim. If it exports too little, consequential dependencies disappear and cross-layer reasoning becomes unsound or incomplete. If it exports everything, the model recreates the monolithic complexity that layering was introduced to control. This selective interface abstraction is what may allow compositional optimization and verification to remain modular and scalable. The model exposes this structure; it does not itself choose the best candidate or prove that a candidate is correct.
+
+Concretely, the composed model must define the cross-layer design space: supplied workload and technology parameters, selectable design parameters or configuration variables, their value domains, and the legality and feasibility constraints that determine valid configurations. It must represent established parameter dependencies and cross-layer constraints while distinguishing known dependencies from candidate or unresolved cross-layer interactions, so any decomposition into subproblems is justified rather than assumed. It must also connect configuration choices to objective functions through performance and cost models and resource-use relations, exposing the evidence needed for bottleneck attribution without presuming the active bottleneck. Finally, it must state representation and correctness invariants together with assume–guarantee interface contracts and refinement obligations. The model represents this admissible structure; agentic exploration may later estimate interaction strengths and refine bottleneck attribution, while verification later discharges the stated obligations.
+
+These representational choices make the cross-layer problem structured, not automatically tractable. For optimization, encoding legality and feasibility constraints, parameter dependencies, and candidate decompositions allows later search to treat the design space as structured rather than as an opaque, flat high-dimensional space and to decompose it only when those relations justify doing so; objective and resource relations also expose candidate limiting resources for later prioritization. Agents may estimate interaction strengths and refine bottleneck attribution, but they do not create legal choices or valid decompositions. For verification, semantic-preservation relations, correctness invariants, interface assumptions and guarantees, and refinement obligations define what each boundary must preserve. They provide the basis for partitioning checks by layer and composing discharged obligations across boundaries instead of requiring one monolithic whole-stack proof.
+
+The bounded research question is therefore: what is the smallest composition of layer-native models that satisfies semantic fidelity and end-to-end sufficiency without abandoning selective compositionality? The goal is not maximum detail. It is enough cross-layer information to preserve consequential choices, physical constraints, and correctness assumptions while retaining the abstractions that keep each local problem manageable.
+
+### 2.1 Existing Modeling Foundations
+
+Which existing models already satisfy parts of the three criteria, and where does each abstraction stop? The relevant literature is not one lineage converging on a universal model. It is a set of complementary foundations, each made useful by choosing what to expose and what to hide. We organize seven foundation families—tensor semantics, compiler representations, architecture models, hardware–software co-design, runtime adaptation, physical and manufacturing models, and contracts and refinement—into four groups and evaluate them against the three requirements defined in the opening of Section 2. In this discussion, a normative language or interface specification is not a machine-checked proof, and an analytical or empirically validated cost model is not a correctness guarantee.
+
+#### A. Meaning, Transformation, and Mapping
+
+Models of computation first show how restrictions can expose useful invariants. Synchronous dataflow represents computation as actors with fixed token-production and consumption rates, allowing valid schedules to be constructed before execution while abstracting actor payloads [R10]. StableHLO addresses a different level: it specifies tensor operations, types, shapes, effects, execution, and forms of dynamism as a portable contract between ML frameworks and compilers [R34]. Synchronous dataflow exposes rates and dependencies but not tensor numerical meaning; StableHLO preserves much more workload meaning but does not prescribe a storage layout, schedule, resource mapping, or physical implementation.
+
+Compiler representations make many of those implementation choices explicit. Halide established the separation between a functional algorithm and a performance schedule [R35]. MLIR, the Multi-Level Intermediate Representation, provides extensible dialects and intermediate representations that can coexist at multiple abstraction levels during progressive lowering [R36]. TVM exposes graph and operator transformations, schedules, target intrinsics, and memory scopes, while TensorIR represents multidimensional buffers, loop nests, computational blocks, access regions, dependencies, and tensorized hardware primitives [R37, R38]. Their systems evidence shows that explicit schedule and mapping choices can produce strong performance across heterogeneous targets. That evidence is principally compiler construction and measured performance, however: MLIR infrastructure does not by itself prove a dialect conversion correct, and performance validation of TVM or TensorIR does not establish semantic refinement through runtime, register-transfer-level (RTL) hardware, and physical realization.
+
+These foundations therefore contribute semantic fidelity and selective compositionality at the workload and compiler levels. Their shared boundary is that the target architecture and its physical feasibility are largely supplied rather than derived, while the correctness and consequence of each cross-representation transition must be established separately.
+
+#### B. Architecture, System, and Runtime Realization
+
+Architecture-level models expose how a tensor mapping uses computation, storage, and communication. Timeloop represents regular operation spaces, hardware topologies, memory hierarchies, constraints, and mapspaces; MAESTRO uses data-centric directives to describe spatial and temporal mappings and infer reuse, traffic, execution time, and energy consequences [R39, R40]. These models support rapid comparison of large mapping and architecture spaces. Their results are analytical projections with validation and case-study evidence, not semantic proofs or physical signoff. They assume that the workload, mapping directives, hardware parameters, and component-cost data supplied to them are the right ones.
+
+System-level foundations broaden the boundary. Metropolis separates functional behavior, architecture, mapping, schedulers, and quantitative annotations within one metamodel, while SystemC transaction-level modeling standardizes communication between behavioral components at deliberately reduced detail [R41, R42]. They demonstrate that layer-native models can be connected without flattening them. They do not determine automatically which hidden facts become consequential for a tensor objective, nor do their interface mechanisms prove that every user-supplied mapping preserves tensor meaning or reaches a valid physical instance.
+
+Full-stack co-design systems establish a stronger constructive precedent. Gemmini links a parameterized tensor accelerator, a RISC-V system, a software stack, full-system simulation, and physical-design feedback; the public evidence includes full-system RTL simulation, physical-design results, and reported tapeouts and fabricated instances [R43]. This directly rules out the claim that meaningful end-to-end co-design paths are absent. Its boundary is instead scope: one accelerator-generator and software ecosystem supplies much of the structure internally. The evidence does not establish a general composition across independently evolving workload, compiler, runtime, architecture, package, process, and manufacturing models.
+
+Runtime systems then model decisions that cannot be fixed earlier. Pollux co-adapts training configurations and cluster allocations using empirical throughput and statistical-efficiency models, while PagedAttention makes dynamic key-value (KV) cache block allocation explicit for language-model serving [R44, R26]. These systems demonstrate useful residual adaptation, but they begin from deployed hardware and compiled software. Their performance models do not state a general semantic envelope for allowed adaptation or carry physical-design and manufacturing assumptions back into runtime control.
+
+#### C. Physical Implementation, Technology, and Manufacturing
+
+Physical-design and semiconductor models expose consequences that architecture-only estimates cannot settle. OpenROAD's 2019 Alpha-flow design brought logic synthesis, floorplanning, placement, clock-tree synthesis, routing, timing, parasitic extraction, and power-integrity analysis into one public architecture aimed toward RTL-to-layout-data (GDSII) generation [R45]. A process design kit (PDK) supplies the technology-conditioned devices, interconnect assumptions, design rules, libraries, and extraction models that make such a flow meaningful. ASAP7 demonstrates this role for academic advanced-node research while explicitly remaining predictive, not tied to a foundry, and non-manufacturable [R46]. It is evidence that every physical result must retain its technology and model provenance, not evidence for a commercial 7-nm implementation.
+
+Other physical and manufacturing models expose orthogonal constraints. 3D-ICE maps stack geometry, materials, cooling, and spatial power into transient temperature estimates and reports validation against measurements from a liquid-cooled 3D IC [R47]. Chiplet Actuary models die yield, die-to-die overhead, packaging, recurring and nonrecurring cost, reuse, and heterogeneous technology assignment for multi-chip systems [R48]. The first supplies physics-conditioned thermal evidence; the second supplies parameterized economic and yield analysis. Neither establishes functional correctness, electrical signoff, or the validity of an upstream tensor mapping.
+
+These models are consequence-rich but semantically downstream. Even when used early for pathfinding, they usually receive RTL, layout, power maps, stack geometry, defect assumptions, and package choices after many workload and architecture decisions have been encoded elsewhere. Their central composition gap is therefore bidirectional: the path downward must explain how tensor and mapping choices produce these physical inputs, and the path upward must expose which physical limits or uncertainties invalidate or reshape earlier choices.
+
+#### D. Contracts, Refinement, and Verified Transformations
+
+Contract and refinement theories provide the clearest foundations for connecting abstractions without erasing them. Interface automata represent temporal input assumptions, output guarantees, compatibility, composition, and refinement [R30]. The Instruction-Level Abstraction gives accelerator operations a hierarchical, software-visible formal semantics and supports equivalence checking between abstraction levels; 3LA uses that interface to generate compiler matching and instruction-level simulators for application-level accelerator validation [R49, R21]. Timeline types encode cycle-level availability, initiation, and structural-use constraints so statically scheduled hardware modules can be composed safely [R22]. These works establish real interface mechanisms, but each chooses a bounded observation: generic interaction, software-visible accelerator behavior, or static pipeline timing.
+
+Verified tensor compilation establishes complementary semantic edges. High-level scheduling rewrites can be proved semantics-preserving in a pure functional tensor language, and a later compiler proves lowering from that language to an imperative loop-and-array representation [R14, R15]. These are machine-checked guarantees for their stated languages and transformations. They do not extend automatically to every downstream compiler pass, runtime protocol, RTL implementation, numerical hardware behavior, or physical instance.
+
+The synthesis is summarized below.
+
+| Foundation group | What it makes explicit | Evidence established | Boundary relevant to this proposal |
+| --- | --- | --- | --- |
+| Meaning and mapping | Tensor operations, rates, dependencies, transformations, schedules, layouts, and target intrinsics | Normative semantics, analytical restrictions, compiler implementations, measured performance, and selected formal lowering results | Resource and physical consequences are incomplete; correctness does not automatically compose across IRs and backends |
+| Architecture, system, and runtime | Dataflow, reuse, memory traffic, topology, mappings, transactions, contention, allocation, and adaptation | Analytical models, simulation, system prototypes, and bounded full-stack physical-design evidence | Workload legality and technology-conditioned realizability are usually assumed or scoped to one integrated family |
+| Physical and manufacturing | Layout, timing, parasitics, devices, design rules, thermal behavior, yield, packaging, and cost | Tool flows, predictive PDKs, physics models with stated validation, and parameterized economic analysis | Tensor meaning and upstream alternatives are absent; validity is conditional on technology, geometry, data, and model provenance |
+| Contracts and refinement | Assumptions, guarantees, compatibility, software-visible behavior, timing interfaces, and selected semantic-preservation relations | Formal interface theories, equivalence checks, type systems, and machine-checked compiler theorems | The proved relations are local; empirical cost, physical uncertainty, manufacturing evidence, and runtime freedom are not one certificate chain |
+
+The surveyed public evidence thus establishes strong local models and several substantial cross-boundary bridges. It does **not** establish their joint capability: a selectively compositional representation that simultaneously preserves declared tensor behavior, retains every cross-layer fact that can change feasibility, objective quality, or correctness, reaches a technology-conditioned physical realization, and bounds the variation left to runtime. This is a claim about what the reviewed public evidence demonstrates, not a claim that proprietary industrial flows or other partial end-to-end systems do not exist.
+
+### 2.2 A Compositional Cross-Layer World Model
+
+To pursue this joint capability, we propose a compositional cross-layer world model: a structured federation of layer-native models connected by explicit cross-layer relations. Each member retains the representations and reasoning principles native to its layer, while the relations expose information whose consequences cross layer boundaries. In this paper, *world model* names that compositional representation. It is neither a learned simulator nor a universal intermediate representation, and it does not search candidates, discharge obligations, or validate physical claims.
+
+The federation relates four typed configuration and assurance spaces. Compatible partial assignments that satisfy the structural constraints form configurations in the **candidate space**; a structurally legal or well-formed candidate is model-admitted for evaluation only under declared assumptions and validity ranges. The **accepted/certified space** contains only candidates whose required obligations have been discharged under declared rules, assumptions, and trusted bases. Within that space, *certified* status is reserved for a named certification criterion and its specified evidence; the model records these statuses but cannot confer them on itself. Deployment binds an accepted configuration to a target and workload context, producing a configuration in the **deployed space**; that configuration in turn induces the **runtime space** of permitted states and actions. Separately, every selectable design or configuration variable has a value domain and one of three commitment stages—design time, compilation/launch time, or runtime—while supplied workload and technology parameters remain inputs rather than choices. Physical validation or signoff supports only the physical claims established by named evidence and analysis conditions.
+
+Within these spaces, the model represents structural dependence relations and hard cross-parameter constraints separately from assumed, predictive, measured, or unresolved interactions. These relations expose a candidate decomposition only when the constraints and objective relations support useful grouping and each known or candidate cross-group effect admitted by the representation is represented or conservatively bounded. Completeness of that relation set remains an adequacy question rather than a fact the model establishes by construction. Such a decomposition does not reduce the raw number of configurations; it may structure the effort required to explore them. Evaluators and profilers estimate or measure interaction strengths, and optimizers use those results to propose and search configurations. The world model represents this structure but does not determine the active decomposition.
+
+The model also connects choices to objective functions through performance and cost models, resource-use relations, and technology-specific physical models. Each relation must retain its input and output meaning, assumptions, analysis conditions, evidence type, validity range, and uncertainty, and must distinguish declared quantities from predictions and observations. These relations expose candidate limiting resources and bottleneck indicators. They do not establish an active bottleneck or a physically valid implementation without the corresponding evaluation or physical evidence.
+
+For compositional correctness, cross-layer relations declare semantic-preservation or observational-refinement relations, correctness invariants, interface assumptions and guarantees, compatibility conditions, and refinement and validation obligations. These declarations identify candidate verification boundaries. Partitioned verification additionally requires compatible assumptions and guarantees, an appropriate refinement relation, and a sound composition rule. A verifier discharges named obligations and establishes acceptance or a scoped composed claim only relative to the declared rules, assumptions, and trusted base; the world model neither performs that work nor turns empirical validation into formal proof.
+
+The proposal is therefore conditional: the federation may expose a useful decomposition of search effort and candidate boundaries for partitioning verification obligations while preserving layer-native abstractions, but the distinct conditions for each must be established independently. It does not make the raw design space smaller, guarantee model accuracy or a global optimum, or establish manufacturability or signoff without named evidence. Its claim is that the required structure can be represented and tested rather than assumed.
+
+### 2.3 Making the World Model Concrete: Research Questions
+
+The proposed federation turns on four unresolved questions about the adequacy of its representation.
+
+**Admissible configurations and commitment.** What typed relations can connect partial assignments in layer-native models to the candidate, accepted/certified, deployed, and runtime spaces without confusing assurance status with per-choice commitment? An answer must state how compatible partial assignments form a structurally legal or well-formed candidate, how declared assumptions and validity ranges govern model admission, how discharged obligations establish acceptance or—when a named certification criterion is met—certification, how deployment binds an accepted configuration, and how that binding induces a residual runtime envelope. In parallel, it must preserve whether each variable is committed at design time, compilation/launch time, or runtime. The runtime envelope must define the available observations, actions, state transitions, allowed semantic or numerical variation, and invariants without reopening rejected design alternatives.
+
+**Dependency structure and conditional decomposition.** What conservative representational condition permits a candidate partition without discarding cross-partition constraints or unresolved interactions? An answer must distinguish structural or proved relations from assumptions, predictive or measured interactions with bounded validity, and unresolved dependencies that must remain conservatively coupled. It must state the objectives and conditions relative to which a grouping is proposed, the admitted cross-partition effects that must be represented or bounded, the adequacy obligation on the relation set, and when the grouping becomes inadmissible. Estimating interaction strength and using the resulting structure to guide search remain responsibilities of Section 3.
+
+**Consequence models and physical validity context.** How can heterogeneous performance, cost, resource, and physical models align their input and output semantics across abstraction levels without treating unlike evidence as interchangeable? An answer must bind every declared, predicted, or observed quantity to its assumptions, analysis conditions, evidence type, validity range, and uncertainty, and must relate low-level observations to the semantic resource quantities used by cross-layer reasoning. It may expose bottleneck indicators and candidate limiting resources, but bottleneck prioritization belongs to Section 3, while physical feasibility, manufacturability, and signoff require the named evidence considered in Section 5.
+
+**Selectively compositional interfaces.** What boundary information is sufficient relative to named workload observations, optimization objectives, and correctness properties, and what explicit criterion makes one sufficient interface selectively smaller than another? An answer must propose a relation under which compatible assumptions and guarantees, semantic-preservation or observational-refinement relations, and discharged obligations allow local claims to imply a scoped composed claim while irrelevant internal detail remains hidden. The model declares the proposed interfaces and relations; Section 4 owns the sound verification rules and methods that establish whether those claims compose.
+
+Together, these questions define the representation: Section 3 addresses how agents estimate and exploit its search structure, Section 4 how its obligations and composition claims are verified, and Section 5 whether its adequacy, predictive validity, and tractability withstand evidence.
+
+## 3. Agentic Optimization
+
+Agentic optimization addresses the end-to-end design complexity of turning a tensor workload into a realizable system configuration. Given the workload, target technology, machine context, and environmental conditions, it must propose coherent configurations spanning hardware organization, system and software deployment, compiler mapping and kernel realization, and the bounded scheduling or resource-allocation choices left to runtime. The output is a candidate configuration that satisfies the world model's declared structural and feasibility constraints; physical feasibility, correctness, and acceptance still require the corresponding tool and verification evidence.
+
+This design problem is difficult because the software–hardware cross-product is heterogeneous, its important interactions and bottlenecks are only partially known, and evaluating one choice may require compilation, distributed profiling, architecture simulation, high-level synthesis, or placement and routing. Treating all variables as flat and independent wastes evaluations and can miss consequences revealed only after lowering. The agent therefore needs the world model as a scaffold: declared variables and domains, constraints and environmental assumptions, known and unresolved dependencies, candidate decompositions, objective and resource relations, and evidence context. It may learn how to search this represented space or propose that the model is missing a consequential variable; it may not unilaterally create legality or change the evidence required for acceptance.
+
+**Cross-Layer Synthesis:** This responsibility manages end-to-end design complexity by constructing one coherent hardware, system-software, compiler, and runtime-schedule configuration from the workload rather than optimizing independent layer choices that may be mutually inconsistent. Accelerator arrays, buffers, and interconnects must agree with placement, sharding, fusion, layout, tile shape, memory scope, generated kernels, and the permitted runtime action envelope. Every assignment remains conditional on declared workload assumptions, technology context, environmental conditions, variable domains, and hard constraints. Cross-layer synthesis preserves layer-native artifacts while making their consequential dependencies part of one candidate.
+
+**Self-Evolving World-Model Learning:** This responsibility may reduce effective optimization complexity by using iterative compiler, profiler, simulator, high-level-synthesis, and physical-design feedback to discover or validate empirical decision boundaries, determine which represented or candidate variables are consequential, refine dependency and interaction hypotheses, identify conditionally separable subspaces, and attribute performance to limiting resources. Each learned relation retains its artifact, workload, target, tool, uncertainty, and validity context. Such learning can reprioritize proposals, refine an empirical decomposition, or trigger a separate world-model revision; it does not reduce the raw cardinality of the design space, and it cannot redefine workload semantics, hard constraints, verification obligations, or evidence authority.
+
+**Verification-Governed Synthesis:** This responsibility controls correctness risk while agents explore a complex design space. Agents propose only configurations consistent with declared structural rules, resource bounds, workload assumptions, technology conditions, and environmental constraints, then submit the resulting compiler, kernel, hardware, and physical artifacts to the applicable checking and admission procedures. Compilers, tests, profilers, simulators, synthesis tools, and physical-design flows establish only their named, scoped results; verification tools discharge stated obligations, and the admission process establishes scoped acceptance. Rejection can guide the next proposal, but the agent cannot certify its own output or relax the condition that rejected it.
+
+The causal mapping is therefore explicit. The world model represents the variables, constraints, dependency structure, objectives, evidence types, and verification obligations that make coherent synthesis possible; the optimizer uses that structure and accumulated feedback to concentrate effort on consequential choices; the verifier determines whether a proposed realization satisfies the required claim. This organization makes search structured and potentially improvable, not automatically tractable or globally optimal. It helps only when consequential relations can be represented, empirical interactions remain stable enough to learn, and tool feedback is informative at an affordable cost; dense hidden coupling or nontransferable evidence can eliminate the advantage over matched Bayesian, evolutionary, or solver-based search.
+
+### 3.1 What Existing Systems Establish
+
+Existing systems establish bounded mechanisms for the three responsibilities above, but not their composition from tensor workload through physical realization. In tensor compilation, the Tensor Language Model learns a proposal distribution over compiler-defined scheduling decisions and, under its reported workloads and protocol, matches fully tuned Ansor and MetaSchedule performance with substantially less compilation time [R50]. Meta LLM Compiler provides complementary adaptation evidence for LLVM intermediate representation and pass selection [R51]. These results show that domain-specific representations and training can improve proposals within an externally defined compiler space; they do not show that a language model should define the legal space. Ansor and MetaSchedule already combine domain-structured spaces with evolutionary or learned search, so they remain necessary non-agentic comparators for any claim that an agent reduces effective optimization complexity [R71, R72].
+
+Tool-grounded kernel systems show how iterative evidence can reveal structure without transferring correctness authority to the agent. KernelBench couples proposed CUDA or Triton implementations to compilation, randomized correctness tests, execution timing, and optional profiling; its initial study found that frontier models produced kernels that were both correct under its tests and faster than the eager PyTorch reference on fewer than 20% of its 250 workloads, although iterative execution and profiling feedback improved some workflows [R54]. TritonGym makes compile, check, and profile access explicit so model and workflow effects can be compared under a common interface [R55]. Autocomp similarly combines accelerator-specific optimization menus with correctness and performance feedback across three workload categories on two tensor accelerators [R53]. Astra divides an existing SGLang-kernel loop among testing, profiling, planning, and coding roles [R58]. These systems support structured proposal, measurement, and revision over concrete kernel artifacts. They also expose the authority boundary: compilation, finite tests, profiling, and timing establish only their named results, not semantic equivalence. KernelBench-Verified demonstrates the practical consequence by adding hidden input distributions, a stronger Tensor Core baseline, and memory metrics; under that protocol, the best reported single-turn model falls from a 1.43x to a 0.88x geometric-mean speedup, and 28% of its kernels increase peak memory [R56].
+
+Systems spanning wider layers provide bounded precedents for cross-layer synthesis. PROMPTS uses HLO operator profiles, roofline analysis, documentation, and past optimizations to propose sharding configurations for large-model training and serving [R59]. GPT4AIGChip connects generated accelerator choices to testbenches, high-level synthesis, synthesis estimates, and FPGA measurements, while LLM-DSE coordinates specialized roles over high-level-synthesis directives [R65, R66]. AutoChip uses compiler and simulation feedback to repair RTL, while ChatEDA and ORFS-agent invoke open EDA flows for tasks ranging from script generation to iterative floorplan, placement, clock, and routing parameter tuning [R64, R63, R67]. These systems show that agents can revise domain artifacts through compiler, synthesis, simulation, and physical-design loops. Tensor compiler, kernel, infrastructure, and accelerator results are direct evidence for bounded parts of the proposed stack; generic LLVM, RTL, and physical-design results provide adjacent mechanism evidence until transfer to tensor-system co-design is tested. A passing testbench, an HLS estimate, or an OpenROAD quality-of-result report remains scoped tool evidence, not functional verification, manufacturability, or signoff.
+
+The same evidence sets a strict complexity claim boundary. Compiler-generated feedback can be less effective than repeated sampling at equal inference budgets [R52]. ArchGym finds that tuned random, Bayesian, evolutionary, and reinforcement-learning methods can become similarly competitive under different sample budgets and hyperparameters, while BOOM-Explorer provides a strong domain-informed, multi-objective Bayesian baseline for microarchitecture exploration [R69, R70]. HSCO-Bench reports that only two of five evaluated frontier models produced benchmark-valid end-to-end FPGA SoC prototypes under its build and test criteria, with substantial unused resources even among successful results [R68]. The surveyed multi-agent comparisons change model calls, context, tool access, or wall time together with role structure [R58, R59, R66]. Public evidence therefore supports bounded, tool-grounded proposal and revision; it does not yet establish that persistent learning or role decomposition reduces effective optimization complexity across the tensor stack. That claim requires matched comparison against domain-specific Bayesian, evolutionary, reinforcement-learning, solver-based, and repeated-sampling baselines.
+
+### 3.2 A Model-Grounded, Provenance-Bearing Knowledge Base
+
+Tool feedback can reduce effective optimization complexity only if the optimizer can determine which decision, artifact, target, and validity context each result describes. A knowledge base grounded in the Section 2 world model supplies that connection instead of treating prior runs as undifferentiated prompt history. For a kernel result, it retains the tensor operation and shapes, code revision, compiler flags, GPU and software versions, correctness procedure, timing samples, profiler counters, and numerical tolerance. For an accelerator result, it additionally retains the mapping, array and buffer parameters, high-level-synthesis or simulation version, resource report, and target device. For a physical result, it retains the RTL, netlist, layout, constraints, libraries, rule decks, process design kit, modes and corners, extracted parasitics, floorplan or placement checkpoint, EDA-tool version, raw reports, and the conditions and named checks under which timing, power, area, thermal, congestion, design-rule, or layout-versus-schematic results were produced. This scope lets an agent ask whether two observations support the same dependency or bottleneck hypothesis before reusing either one.
+
+The knowledge base must keep five content classes distinct because search guidance and acceptance carry different authority. A **declared contract** comes from the world model: workload semantics, variable domains, hard constraints, objectives, and verification obligations. An **unevaluated proposal** records a candidate change, plan, or hypothesis before tool evidence exists. A **raw observation** comes from a named compiler, test, profiler, simulator, synthesis tool, physical-design flow, checker, or measurement and retains provenance and validity context. A **derived empirical hypothesis** relates observations within a stated scope and uncertainty—for example, that a tile-size and memory-scope interaction is active for one shape family, that register pressure limits a kernel, or that clock target and utilization should remain coupled during placement. Finally, a **discharged-obligation or certification record** may be written only by the verification and admission process of Section 4. Agents may use the first four classes to rank proposals or request a discriminating run, but they may not overwrite observations, change evidence class, or issue the fifth class.
+
+Provenance must drive invalidation, not only auditing. The artifacts form a dependency graph: changing a tensor layout, buffer, RTL block, constraint, tool version, library, or process corner forks the candidate lineage and marks dependent binaries, simulation results, synthesis reports, and place-and-route evidence stale for the new branch. The immutable observations remain available for comparison, but they cannot support the revised candidate unless an explicit compatibility relation preserves their validity. The same rule applies to a learned interaction or bottleneck hypothesis derived from those observations. This prevents apparent search improvement from depending on evidence whose workload, toolchain, architecture, or physical assumptions no longer hold.
+
+Existing systems supply partial precedents. AlphaEvolve retains candidate programs, evaluation results, and lineage in an evolutionary database [R60]. ORFS-agent retains checkpoint-aligned physical-design trajectories [R67], and PROMPTS retrieves documentation and historical optimizations [R59]. FlashInfer-Bench goes further for inference kernels by separating versioned definitions, workloads, solutions, and immutable evaluations, with compatibility metadata and kernel fallback or rollback [R61]. The surveyed evidence does not establish a provenance-typed knowledge base spanning tensor semantics, compiler and runtime decisions, accelerator artifacts, and physical evidence. The open question is whether such a base can preserve enough context to make interaction and bottleneck hypotheses reusable without falsely generalizing across shapes, GPUs, compiler versions, accelerator instances, process technologies, or physical corners.
+
+### 3.3 Bounded Self-Evolution and Domain-Specific Model Adaptation
+
+*Self-evolution* is the bounded mechanism by which repeated compiler, profiler, simulator, synthesis, and physical-design loops may reduce effective optimization complexity across later tasks. It improves proposal, planning, retrieval, or evaluation-selection policies from accumulated tool-grounded experience; possible updates include search heuristics, empirical interaction estimates, bottleneck hypotheses, retrieval indices, and proposal-model parameters. These changes may concentrate evaluations on performance-relevant subspaces, but they do not change the represented design space or the authority boundary. Tensor semantics, variable domains, hard constraints, verification obligations, certification rules, trusted checkers, and evidence status remain externally governed. A candidate that violates declared workload semantics while exploiting an incomplete kernel test distribution has exposed an evaluation defect, not learned a better design rule. Optimization for a declared deployment distribution is legitimate only within that stated semantic and assurance scope.
+
+Four adaptation routes address different domain failures and must therefore be evaluated separately. Continued pretraining asks whether exposure to compiler intermediate representations and assembly, CUDA or Triton, hardware-description languages, EDA scripts, and architecture manuals improves structural fluency; Meta LLM Compiler and ChipNeMo provide bounded adjacent evidence in compiler and chip-design workflows [R51, R62]. Supervised fine-tuning asks whether curated or tool-evaluated examples improve legal transformation, artifact repair, and well-formed tool calls. Retrieval and tool grounding supply volatile compiler documentation, target descriptions, design artifacts, and measurements without changing weights. Post-training from evaluated trajectories asks whether compilation, testing, profiling, simulation, synthesis, or physical-design outcomes improve long-horizon proposal and tool selection. CUDA-L1 provides direct kernel evidence for post-training and documents reward exploits, but its training and evaluation draw from the same KernelBench task collection, leaving task-family generalization unresolved [R57]. No cited result establishes one adapted model across compiler and kernel optimization, AI-infrastructure configuration, accelerator design, and physical implementation.
+
+Adapted weights are not a substitute for the knowledge base: weights alone provide neither inspectable record-level provenance nor selective invalidation when a compiler, workload, target, library, or process context becomes stale. A domain-adapted proposal model therefore consumes a versioned knowledge-base snapshot and writes plans and hypotheses back as unevaluated proposals. Only named tool results create observation records, and derived empirical hypotheses retain their lineage. Each adapter or checkpoint needs a parent identity, training-corpus and trajectory versions, tool and reward versions, exclusion filters, adaptation settings, and evaluation receipt. It may enter proposal service only after regression tests on previously supported compiler, kernel, hardware, and EDA tasks; a failed gate rolls back the proposal policy or retrieval state without erasing the underlying observations.
+
+The decisive comparison separates weight adaptation from retrieval delivery. Its four arms are a fixed general model with common tools, the same model with retrieval and common tools, a model adapted from the same base with common tools, and that adapted model with retrieval and common tools. Paired contrasts hold the task and world-model snapshot, source corpus or knowledge-base version, tool APIs, evaluators, and budgets fixed; adaptation data and training cost are the intervention and are reported separately. Held-out tasks must cross more than prompt instances: unseen operator families and shapes, compiler revisions, GPUs or accelerators, RTL blocks, and physical-design contexts test whether learned structure transfers. Outcomes include well-formed tool-call rate, structural model-admission rate, artifact compilation or materialization rate, named-test pass rate, tool-reported resource or physical-constraint violations, objective quality, sample and wall-time cost, regressions, catastrophic forgetting, and rollback frequency. Measured post-training improvement remains evidence about that model, trajectory distribution, toolchain, and task boundary; it is not verified design knowledge.
+
+### 3.4 Multi-Agent Coordination and the Game-Theory Boundary
+
+Multiple agents are useful only if domain specialization makes cross-layer synthesis more coherent or less costly than a centralized optimizer. A compiler role can propose fusion, layout, and schedule moves and interpret compiler- or checker-reported well-formedness; a kernel role can inspect generated code and profiler counters; an infrastructure role can relate sharding, placement, batching, and routing to step time or service-level objectives; an architecture role can examine compute, memory, and interconnect organization; and a physical-design role can interpret timing, congestion, power, and thermal reports. These roles coordinate through the same typed candidate, evidence, and hypothesis records, not through untraceable natural-language consensus. A coordinator may allocate tool budget, request a cross-layer intervention, or maintain Pareto archives over latency, throughput, energy, area, cost, and thermal headroom under one shared objective vector and declared selection policy. Dominance is comparable only for compatible targets, contexts, evaluator fidelities, and uncertainty; a predicted or HLS-estimated point may prioritize a higher-fidelity run but cannot dominate a measured or signoff-scoped point as though their evidence were interchangeable. Declared structural dependencies and proposal-time constraints remain model-admission conditions; resource, physical, or safety claims requiring tool or verification evidence remain external acceptance obligations rather than objectives a role may trade away.
+
+The default formulation is therefore centralized, constrained multi-objective optimization. Specialized roles cooperate for one shared objective vector, and the system—not a vote among roles—routes candidates through declared constraints and required checks. Role decomposition may reduce effective coordination complexity when compiler, profiler, simulator, and EDA contexts can be compressed through typed artifact interfaces and when parallel tool latency exceeds synchronization overhead. It should fail when cross-layer coupling remains dense, artifacts become stale across handoffs, or roles duplicate expensive evaluations. Astra, PROMPTS, and LLM-DSE provide examples of cooperative role decomposition, but their evidence does not isolate role structure from extra context, calls, and tools [R58, R59, R66]. A causal test compares a single centralized agent with a multi-agent system under the same proposal model, knowledge, tools, evaluator budget, and wall time, and separately compares typed shared records with natural-language-only handoffs. Stale-reference errors, conflicting assignments, duplicate tool calls, handoff failures, coordination time, and evidence-compatible Pareto quality all count.
+
+Game theory is not the default foundation for this coordination. It becomes relevant only when controllers have genuinely distinct objectives or service-level obligations, private or local information, independent action or allocation authority, and resource externalities that a central optimizer cannot simply resolve. Themis, for example, uses application-level bids and a central auction to allocate contended GPUs under a fairness objective [R73]. That is structurally different from giving one optimizer several cooperating compiler, kernel, and EDA roles. The research must first establish which authority pattern exists; the number of agents alone does not create a game.
+
+### 3.5 Research Questions and Evidence Contract
+
+Four mechanism questions test the three responsibilities in the Section 3 opening. **Can cross-layer synthesis manage end-to-end design complexity better than layer-local or flat search?** Given the same represented variables, move grammar, constraints, tools, and evaluation budget, a joint optimizer should produce internally consistent compiler, kernel, runtime, architecture, and physical assignments with fewer rejected handoffs and faster progress toward an evidence-compatible Pareto frontier. The comparison must separate this coordination effect from a larger candidate language: generating CUDA, RTL, or another artifact outside a baseline's grammar is a representation-expansion experiment, not evidence that one search method is better.
+
+**Can tool-grounded experience reveal reusable search structure?** The optimizer must distinguish a stable cross-layer interaction or limiting resource from noise, tool error, and a context-specific effect, while preserving unresolved dependencies until controlled interventions justify a partition. Under identical stored content, provenance-conditioned retrieval with applicability filtering and dependency invalidation should be compared with untyped similarity retrieval. Deliberately close but incompatible records—different tensor shapes, compiler versions, GPU generations, accelerator instances, process kits, or corners—test whether learned structure improves held-out search and reduces rejected artifacts, misleading tool runs, and recovery cost rather than merely improving auditability.
+
+**Does model adaptation add value beyond retrieval and accumulate safely?** Continued pretraining, supervised fine-tuning, and trajectory post-training must each be compared with the fixed-model and retrieval-only arms defined in Section 3.3. Sequential held-out tasks test whether the proposal policy reduces compiler-rejected artifacts, kernels failing named test distributions, tool-reported resource violations, and place-and-route timeouts or declared-constraint violations without detected exploitation under hidden, shifted, and adversarial checker probes. Gains must survive regression tests and remain recoverable by checkpoint and memory rollback.
+
+**When does role decomposition outperform centralized search?** Specialized compiler, kernel, infrastructure, architecture, and physical-design roles must be compared with a single agent and tuned stochastic, evolutionary, Bayesian, reinforcement-learning, and solver-based methods. A game-theoretic comparison is warranted only when independently controlled actors, distinct utilities or obligations, private information or strategic reports, coupled-resource externalities, and allocation authority beyond a central controller occur together.
+
+All four questions use verification-governed evaluation. The optimizer proposes candidates; named compilers, tests, profilers, simulators, synthesis and physical-design tools, and Section 4 verifiers establish only their scoped results. Search-method comparisons freeze the represented candidate space, move grammar, model-admission and acceptance rules, tools, information, and evaluator versions. Multi-fidelity budgets are explicit: failed and early-stopped candidates consume budget, and competing methods receive matched call allowances by tool class or matched cumulative evaluator cost, together with a common wall-time or compute ceiling. Reports separate compiler, test, profile, simulation, synthesis, and place-and-route calls and time; maximum parallelism; model tokens and compute; coordination overhead; and timeouts.
+
+The primary outcomes keep authority transitions separate: rates of well-formed tool calls, structural model admission, artifact materialization, named-test pass, tool-reported resource or physical-constraint satisfaction, and verifier-established obligation discharge. Optimization outcomes are best-so-far quality and evidence-compatible Pareto hypervolume or frontier coverage versus both evaluations and wall time. Sequential outcomes include held-out transfer, false-transfer rate, regression, rollback, stale-reference errors, duplicate evaluations, and handoff failures. Failure to beat matched domain-specific search, failure to transfer beyond stored contexts, or gains that disappear under stronger correctness and resource checks would falsify the claimed advantage in the evaluated domain.
+
+The first go/no-go experiment remains small: freeze one two-layer space for a fused tensor region, with compiler choices such as fusion, layout, and tile family connected to kernel choices such as block geometry and memory scope. Use compilation, static resource checks, and named semantic tests as lower-cost evaluators, and profiler-backed runtime measurement as the expensive evaluator. Across held-out shapes, compare a provenance-conditioned agent with matched Bayesian and evolutionary search over the same moves, then ablate applicability filtering. If the agent does not reduce false transfer or time to a fixed performance level under matched budgets, whole-stack integration is not yet justified. This experiment has not been run; the present Section 3 evidence is the bounded prior work surveyed above.
+
+## 4. Layered Verification
+
+Layered verification addresses a different complexity problem from design-space exploration: how to determine whether one candidate tensor-system realization may enter the accepted/certified space without proving every candidate or rechecking at runtime facts already fixed earlier. Acceptance requires scoped evidence that the realization preserves its declared computation and remains within its resource, implementation, and runtime conditions. Given a world-model contract and a proposed realization, assurance must connect tensor semantics to compiler mappings, hardware behavior, physical implementation, and the bounded actions still allowed after deployment. The intended result is not one universal proof. It is a chain of scoped claims whose assumptions, artifacts, evidence, and authority remain explicit.
+
+The difficulty is that the relevant facts become available at different times and are established by different kinds of evidence. Tensor semantics and transformation relations are visible in software representations; concrete shapes, layouts, schedules, buffers, routes, and target identities become known during compilation or launch; RTL, netlists, layouts, process collateral, and silicon measurements belong to hardware realization; queues, arrivals, allocations, failures, and contention may remain dynamic. A monolithic proof would combine incompatible abstractions and state spaces. Independent local checks are not enough either: a lower artifact can pass its own checker while violating an upper assumption that was never exported. The assurance architecture must therefore place each obligation at the earliest horizon with sufficient information, then preserve the resulting assumption–guarantee and refinement links.
+
+**Design and Fabrication Assurance:** This horizon controls reusable hardware and physical-implementation risk. Before fabrication, it must establish the required behavioral or transaction-to-RTL refinement, protocol and concurrency properties, reset and clock-domain obligations, synthesis equivalence, and physical release conditions for exact artifact versions. Simulation, emulation, formal checking, static timing, design-rule checking, layout-versus-schematic comparison, and other physical analyses contribute different evidence and must not be merged into one generic “verified” status. Fabricated-device test and characterization may later instantiate or narrow the hardware contract for a particular silicon population and operating range; they do not retroactively turn finite measurements into a universal proof.
+
+**Compilation and Launch Assurance:** This horizon binds a tensor workload and a concrete mapping to a qualified target. It must establish the named semantic-preservation or refinement claims across the selected rewrites and lowering edges, then check the resulting shapes, layouts, dependencies, schedules, buffers, communication, synchronization, resource predicates, artifact identities, and permitted runtime envelope. A verified compiler may establish a theorem for its admitted language; translation validation may instead check one source–target pair; ordinary compiler acceptance establishes only the compiler's own structural rules. An unsupported case, timeout, or failed obligation is rejected or left explicitly inconclusive rather than inferred correct.
+
+**Runtime-Bounded Assurance:** This horizon controls only the freedom that legitimately remains after deployment, such as admitted shape parameters, placement, routing, admission, batching, queue and memory allocation, and responses to declared faults or contention. An agent or learned controller may propose an action, but a version-bound guard must decide whether the action and next state remain inside the deployed envelope before any irreversible effect, within the action's worst-case decision budget. Rejection invokes a previously checked fallback or refusal path with bounded progress. A monitor that merely observes a finite prefix cannot establish an eventual property, and a performance predictor cannot waive a deterministic semantic, resource, or safety condition.
+
+This partition may reduce effective verification complexity when tensor operations and observations are declared; geometry, dependencies, rates, addresses, and resource effects are fixed, parameterized, or conservatively bounded before execution; payload values do not alter the control or resource behavior being abstracted; and the remaining runtime state and actions form a compact envelope. Then hardware obligations can be reused across workloads, compilation can specialize them to one mapping, and runtime can check only changing facts. The raw complexity of an individual proof or checker is not automatically reduced, and the factorization fails when payload-dependent routing, shape, allocation, synchronization, or termination reintroduces hidden state; when geometry, queues, retries, or faults are unbounded; when physical assumptions are stale; or when local contracts lack a sound composition rule.
+
+### 4.1 What Existing Verification Foundations Establish
+
+Restricted models of computation establish the first causal premise. Fixed token-production and consumption rates make balance and static scheduling questions analyzable in synchronous dataflow, while general process networks do not inherit bounded scheduling or termination merely from being dataflow [R10, R12]. Affine iteration and access structure similarly enables machine-checked polyhedral code generation for a defined compiler edge [R13]. These results do not prove actor payload semantics, arbitrary parallel execution, or target resource sufficiency. They show instead that exact restrictions can replace some execution-history reasoning with symbolic relations known before runtime.
+
+Tensor-specific verification carries that premise into optimization and mapping. Verified scheduling rewrites and verified lowering for a functional tensor language show that performance choices can remain flexible while their semantic effect is constrained by proved transformations [R14, R15]. Hyperblock scheduling for verified high-level synthesis uses an untrusted scheduler with a verified validator, separating proposal quality from correctness authority [R16]. Translation validation for affine Halide programs checks required writes, defined reads, and value equality for one generated implementation, while an SMT-based validator covers selected machine-learning compiler transformations rather than the entire MLIR pipeline [R74, R75]. TrainVerify uses stage-wise checking and shape reduction to verify distributed training plans at reported frontier-model scale, but its claim stops before generated kernels, collective libraries, floating-point execution, runtime faults, and hardware [R25]. These systems provide direct evidence that tensor regularity can reduce particular proof objects; none establishes a complete framework-to-silicon chain.
+
+Different obligations require different checkers. GPUVerify proves modeled race and barrier-divergence properties for supported CUDA and OpenCL kernels, not tensor functional equivalence or numerical accuracy [R76]. Honeycomb statically validates a parameterized family of GPU-binary memory accesses and performs low-cost per-launch argument checks, but its guarantee is memory-region confinement under its AMD ISA and trusted-monitor assumptions [R77]. The Instruction-Level Abstraction supports equivalence checking between software-visible accelerator specifications and finite-state-machine implementations, while Timeline Types check cycle-level composition for statically scheduled hardware [R49, R22]. Kami demonstrates machine-checked modular refinement for parameterized hardware families, and ABC provides combinational and sequential circuit-equivalence and model-checking machinery [R82, R83]. Together these works establish useful semantic, concurrency, timing, and hardware-refinement edges. Their properties compose only if their observation relations, assumptions, artifacts, and trusted bases are compatible.
+
+Simulation and physical realization provide indispensable but different evidence. Application-level validation through a formal accelerator interface can expose whole-application defects, yet a simulator agrees with RTL only after a separate relation to that exact RTL has been established [R21]. The Universal Verification Methodology standardizes reusable simulation environments, while clock/reset-domain and AXI standards define verification intent and protocol obligations; none proves conformance merely by being adopted [R84, R85, R86]. OpenROAD and OpenLANE demonstrate reproducible paths through synthesis, placement, routing, extraction, timing, and layout checks, but an open flow or predictive process design kit is not commercial foundry signoff [R45, R46, R87]. Post-silicon quick-error-detection methods and deployed TPU measurements show the value of fabricated-device evidence, while remaining bounded to named instruments, devices, workloads, and conditions [R88, R9]. Functional proof, physical release, and measured-silicon qualification therefore remain separate claims.
+
+Runtime systems expose both the opportunity and its boundary. StableHLO distinguishes bounded, unbounded, input-derived, and data-dependent dynamism; size-dependent array types discharge a useful subset of shape relations before execution [R19, R18]. JANUS guards speculative graph specialization and defers state updates so a failed assumption can fall back to imperative execution [R78]. TensorRT binds serialized engines to runtime versions and device capabilities, illustrating artifact compatibility checks without establishing semantic equivalence [R81]. PagedAttention manages dynamic key-value-cache allocation, and Clockwork uses profiled action windows to reject work predicted to miss a service deadline [R26, R79]. These are concrete late-bound mechanisms, not formal runtime guarantees. MegaBlocks is the counterexample: token values can determine expert routes and work even when surrounding tensor ranks are known [R27]. Finite-prefix runtime verification may also remain inconclusive, while supervisory control and shielding can enforce only properties represented by a sound observable model and an interceptable action set [R80, R29, R24].
+
+The surveyed foundations thus establish strong local proofs, validators, guards, physical analyses, and fallback patterns. The missing capability in the surveyed public evidence is their disciplined composition: one versioned assurance chain that places each obligation at the right horizon, binds every claim to its artifact and validity domain, permits only a compact residual runtime freedom, and invalidates downstream claims when an upstream assumption changes. This is not a claim that industrial flows lack end-to-end verification practice. It is the narrower observation that the joint tensor-specific composition and its complexity benefit have not been established by the evidence reviewed here.
+
+### 4.2 A Three-Horizon Compositional Assurance Architecture
+
+We propose a versioned assurance graph over the world model's candidate, accepted/certified, deployed, and runtime spaces. Its nodes are concrete semantic, compiler, runtime, hardware, physical, and silicon artifacts; its edges state the observation or refinement relation, upper assumptions, lower guarantees, compatibility conditions, and evidence required to discharge one obligation. The graph identifies what must be checked and where claims may compose. It does not certify itself: proof kernels and validators discharge formal obligations, admission procedures establish scoped acceptance, release authorities decide fabrication, and named physical or silicon evidence supports physical claims.
+
+Evidence status must remain property-specific. A mechanized theorem establishes only its stated proposition under its formal semantics and trusted proof stack. A translation validator establishes a relation for one bound source–target pair. A compiler acceptance result establishes only syntax, typing, operation, shape, attribute, or target rules implemented by that compiler. A test or simulation samples concrete or modeled executions; a profiler or measurement records named executions and conditions. Synthesis, timing, power, thermal, and physical-design tools produce model-, target-, constraint-, mode-, and corner-conditioned evidence. Design-rule, layout-versus-schematic, timing, electrical, test, and silicon-characterization results each support only their named claims. An agent may use any of these records to propose the next action, but it may not upgrade their evidence class.
+
+At the **design and fabrication horizon**, the hardware contract presented for acceptance should cover the software-visible operation semantics, transaction and ordering behavior, numerical mode, reset and fault behavior, finite resources, timing interface, and environmental assumptions that later mappings rely on. Selected relations then connect behavioral models to RTL, RTL to synthesized and engineering-change-order netlists, and those artifacts to the physical release packet. Formal refinement, protocol and concurrency checks, simulation regressions, clock/reset analysis, logic equivalence, static timing, geometry/connectivity checks, power-integrity and thermal analyses, and test collateral remain separate obligations. Any unresolved correctness-critical counterexample or failed required obligation blocks fabrication; an inconclusive result requires an accepted alternative evidence path or explicit narrowing of the feature or contract. After fabrication, test, repair, binning, calibration, and characterization bind actual device identities and operating ranges to a qualified subset of the contract. A contradiction triggers disablement, derating, remapping, or rebinding—not relabeling the observation as proof.
+
+At the **compilation and launch horizon**, one workload and mapping are bound to that qualified hardware contract. The compiler may use previously proved transformations, or an untrusted optimizer may emit witnesses or certificates checked independently. The resulting assurance record names the source semantics and numerical observation, rewrite and lowering evidence, shape family, layout and storage remapping, dependence and lifetime conditions, distributed partition and collective model, kernel concurrency properties, buffer and communication bounds, target resources, runtime and checker versions, hardware identity, and residual runtime envelope. Proof-carrying code provides the general producer–checker pattern [R23]; tensor translation validators, TrainVerify, GPUVerify, and Honeycomb show why several property-specific checks are still needed. The technical output is a bound evidence record. The applicable admission or certification authority records scoped acceptance/certification, rejection, or an inconclusive status; only the first may authorize deployment. A plan that merely compiles, deserializes, passes sampled tests, or fits an analytical resource model has not thereby discharged the other obligations.
+
+At the **runtime horizon**, the deployed contract exposes only bounded observations, actions, state transitions, and faults. A choice may remain dynamic only when its version-bound guard can decide membership and preservation of the next-state invariant from observable state before irreversible effect, within a declared worst-case decision time, and when refusal invokes a checked fallback that preserves bounded progress. Shape-family membership, queue capacity, key-value-cache blocks, placement, routing, admission, batching, and resource allocation are plausible runtime facts when their state and consequences are bounded. Payload-dependent expert routing, speculative updates, retries, and variable sequence growth require explicit bounds, rollback or deferred effects, and a progress rule. General liveness cannot be delegated to a finite-prefix monitor; it must be proved earlier or reduced to a bounded deadline, decreasing rank, retry budget, or guaranteed fallback. Performance predictions may choose among already admitted actions, but prediction error must cause only bounded performance degradation, not semantic or resource failure. The guard, its observation path, worst-case decision-time evidence, and fallback must themselves be accepted before deployment and rebound or invalidated when a relevant dependency changes.
+
+Composition and invalidation are global even though checking is partitioned. A local claim contributes to acceptance only when its assumptions are established by preceding claims, its guarantees match the next interface, and a sound composition rule covers the desired observation. Every record binds hashes or versions of its specification, source and target artifacts, checker, solver or proof kernel, runtime, hardware, process collateral, constraints, modes, corners, and environmental assumptions as applicable. A changed layout, compiler, RTL block, netlist, process kit, corner, runtime, calibration, or fallback—or a violated validity premise such as an environmental excursion, device degradation, stale calibration, or breached fault assumption—must conservatively invalidate every possibly dependent claim unless a checked compatibility relation preserves it. Claiming an exact invalidation closure itself requires evidence that the represented dependencies are complete. The evidentiary trusted base therefore includes not “the tool” in general, but the contract semantics, proof kernels or result checkers, artifact-binding and invalidation mechanisms, unverified translators, reference models, environment assumptions, physical collateral, and runtime guard used by the named claim. Admission, certification, and release authorities are governance actors: they decide whether the scoped evidence is sufficient to proceed but cannot upgrade its evidence class.
+
+The proposed architecture may factor assurance effort, but it does not guarantee that local obligations are small, that their assumptions compose, or that runtime checking is cheap enough. Its claim is conditional: static relations discharged earlier need not be re-proved at runtime, although mutable premises on which they depend may require monitoring. Uncertain performance behavior should remain outside deterministic correctness authority. Whether this partition produces a net complexity reduction is an empirical and formal question.
+
+### 4.3 Making Layered Assurance Concrete: Research Questions
+
+Four questions determine whether the three-horizon architecture is real rather than a relabeling of existing checks.
+
+**Where should each obligation be discharged?** What criterion assigns semantic, numerical, dependence, lifetime, resource, protocol, refinement, physical, fault, and progress obligations to the earliest horizon with sufficient information while leaving only necessary freedom at runtime? A successful answer must derive the placement from commitment and observability, not from organizational ownership. It must identify the exact tensor restrictions—fixed or bounded geometry, controlled rates, affine or conservatively summarized accesses, payload-independent resource effects, and finite runtime actions—that allow an obligation to move earlier, and it must refuse the factorization when those restrictions fail.
+
+**When do local claims compose?** What observation and refinement relations, assumption–guarantee compatibility rules, and trusted bases allow a tensor semantic claim, a mapping certificate, a hardware refinement result, a physical qualification record, and a runtime invariant to imply one scoped acceptance statement? The answer must keep mathematical or numerical equivalence, memory and concurrency safety, resource sufficiency, progress, and physical validity distinct. A sequence of passing tools is insufficient if an upper assumption is absent from the lower contract or if one check's model excludes a behavior relevant to the composed claim.
+
+**How do proof, checking, and invalidation costs scale?** The central complexity test is not tensor size alone. It is whether certificate size, solver or checker time, trusted-state size, and rechecking closure scale with compact geometry and contract structure rather than payload volume, replica count, or full execution history. Matched variants should independently replace affine accesses with indexed accesses, fixed rates with payload-dependent work, bounded shapes with unbounded geometry, and payload-independent routing with value-dependent routing. Any timeout, unsupported case, or bounded no-counterexample result remains inconclusive unless the bound covers all admitted behavior. Cross-layer changes must also measure how much evidence is invalidated rather than assuming reuse.
+
+**Can runtime assurance remain both fast and useful?** For one deployed envelope, the guard must be evaluated on worst-case and tail decision latency, state and observation overhead, rejected and corrected actions, fallback frequency and recovery cost, progress, and objective loss relative to an unconstrained oracle and a static safe policy. Hidden, shifted, stale, and adversarial conditions test whether the guard sees every consequential fact before action. If a monitor is often inconclusive, a fallback cannot meet the deadline, or checking overhead removes the benefit of adaptation, the claimed runtime freedom is not useful.
+
+The first go/no-go experiment should bind one parameterized affine tensor region to one open accelerator or high-level-synthesis target and construct the smallest scoped prototype assurance chain: a workload semantic relation, one validated compiler mapping, explicit resource and concurrency checks, one behavioral-to-RTL obligation, versioned physical-flow evidence, and a launch/runtime guard over a bounded shape and allocation envelope. Across repeated launches and controlled artifact changes, compare it with a matched baseline that validates each concrete instance without reusing the partitioned claims. Measure total and amortized certificate-generation, proof or validation, interface-checking, runtime-guard, invalidation, and recovery costs; also report trusted-base size, guard worst-case latency, fallback behavior, and the evidence invalidated by one compiler, layout, RTL, and target-condition change. Then introduce one payload-dependent routing or unbounded-state variant without changing unrelated machinery. If local claims cannot be composed, if total assurance cost does not improve over the matched baseline, if checking cost still scales with payload-scale histories, or if the runtime guard must repeat the upstream proof, the three-horizon hypothesis fails for that region. This experiment has not been run; the current evidence is the bounded set of foundations surveyed above.
 
 ## References
 
-[R1] Ada Lovelace, “Notes” in *Sketch of the Analytical Engine Invented
-by Charles Babbage*, 1843.
-[Text](https://psychclassics.yorku.ca/Lovelace/lovelace.htm)
+[R9]Norman P. Jouppi et al., “In-Datacenter Performance Analysis of a Tensor Processing Unit,” 2017. [Google Research](https://research.google/pubs/in-datacenter-performance-analysis-of-a-tensor-processing-unit/)
 
-[R2] Alan M. Turing, “On Computable Numbers, with an Application to the
-Entscheidungsproblem,” 1936–1937.
-[DOI](https://doi.org/10.1112/plms/s2-42.1.230)
+[R10]Edward A. Lee and David G. Messerschmitt, “Static Scheduling of Synchronous Data Flow Programs for Digital Signal Processing,” 1987. [DOI](https://doi.org/10.1109/TC.1987.5009446)
 
-[R3] Claude E. Shannon, “A Symbolic Analysis of Relay and Switching
-Circuits,” 1938.
-[PDF](https://tubes.mit.edu/6S917/_static/2025/resources/shannon38.pdf)
+[R12]Thomas M. Parks, *Bounded Scheduling of Process Networks*, 1995. [PDF](https://ptolemy.berkeley.edu/publications/papers/95/parksThesis/thesis.pdf)
 
-[R4] Arthur W. Burks, Herman H. Goldstine, and John von Neumann,
-*Preliminary Discussion of the Logical Design of an Electronic Computing
-Instrument*, 1946/1947.
-[IAS archive](https://albert.ias.edu/entities/publication/49465635-0aa6-4299-921b-98c70c876e51)
+[R13]Nathanaël Courant and Xavier Leroy, “Verified Code Generation for the Polyhedral Model,” 2021. [DOI](https://doi.org/10.1145/3434321)
 
-[R5] John von Neumann, “The General and Logical Theory of Automata,”
-1948.
-[PDF](https://www.vordenker.de/ggphilosophy/jvn_the-general-and-logical-theory-of-automata.pdf)
+[R14]Amanda Liu et al., “Verified Tensor-Program Optimization via High-Level Scheduling Rewrites,” 2022. [DOI](https://doi.org/10.1145/3498717)
 
-[R6] Maurice V. Wilkes and John B. Stringer, “Micro-Programming and the
-Design of the Control Circuits in an Electronic Digital Computer,” 1953.
-[DOI](https://doi.org/10.1017/S0305004100028322)
+[R15]Amanda Liu, Gilbert Bernstein, Adam Chlipala, and Jonathan Ragan-Kelley, “A Verified Compiler for a Functional Tensor Language,” 2024. [DOI](https://doi.org/10.1145/3656390)
 
-[R7] Robert M. Tomasulo, “An Efficient Algorithm for Exploiting Multiple
-Arithmetic Units,” 1967.
-[DOI](https://doi.org/10.1147/rd.111.0025)
+[R16]Yann Herklotz and John Wickerson, “Hyperblock Scheduling for Verified High-Level Synthesis,” 2024. [DOI](https://doi.org/10.1145/3656455)
 
-[R8] H. T. Kung, “Why Systolic Architectures?” 1982.
-[DOI](https://doi.org/10.1109/MC.1982.1653825)
+[R18]Troels Henriksen and Martin Elsman, “Towards Size-Dependent Types for Array Programming,” 2021. [DOI](https://doi.org/10.1145/3460944.3464310)
 
-[R9] Norman P. Jouppi et al., “In-Datacenter Performance Analysis of a
-Tensor Processing Unit,” 2017.
-[Google Research](https://research.google/pubs/in-datacenter-performance-analysis-of-a-tensor-processing-unit/)
+[R19]OpenXLA, “Dynamism in StableHLO.” [Specification](https://openxla.org/stablehlo/dynamism)
 
-[R10] Edward A. Lee and David G. Messerschmitt, “Synchronous Data Flow,”
-1987.
-[DOI](https://doi.org/10.1109/TC.1987.5009446)
+[R20]Haichen Shen et al., “Nimble: Efficiently Compiling Dynamic Neural Networks for Model Inference,” 2021. [MLSys](https://proceedings.mlsys.org/paper_files/paper/2021/hash/5b47430e24a5a1f9fe21f0e8eb814131-Abstract.html)
 
-[R11] Gilles Kahn, “The Semantics of a Simple Language for Parallel
-Programming,” 1974.
-[PDF](https://perso.ensta.fr/~chapoutot/various/kahn_networks.pdf)
+[R21]Bo-Yuan Huang et al., “Application-Level Validation of Accelerator Designs Using a Formal Software/Hardware Interface,” 2024. [DOI](https://doi.org/10.1145/3639051)
 
-[R12] Thomas M. Parks, *Bounded Scheduling of Process Networks*, 1995.
-[PDF](https://ptolemy.berkeley.edu/publications/papers/95/parksThesis/thesis.pdf)
+[R22]Rachit Nigam, Pedro Henrique Azevedo de Amorim, and Adrian Sampson, “Modular Hardware Design with Timeline Types,” 2023. [DOI](https://doi.org/10.1145/3591234)
 
-[R13] Nathanaël Courant and Xavier Leroy, “Verified Code Generation for
-the Polyhedral Model,” 2021.
-[DOI](https://doi.org/10.1145/3434321)
+[R23]George C. Necula, “Proof-Carrying Code,” 1997. [DOI](https://doi.org/10.1145/263699.263712)
 
-[R14] Amanda Liu et al., “Verified Tensor-Program Optimization via
-High-Level Scheduling Rewrites,” 2022.
-[DOI](https://doi.org/10.1145/3498717)
+[R24]Mohammed Alshiekh et al., “Safe Reinforcement Learning via Shielding,” 2018. [DOI](https://doi.org/10.1609/aaai.v32i1.11797)
 
-[R15] Amanda Liu, Gilbert Bernstein, Adam Chlipala, and Jonathan
-Ragan-Kelley, “A Verified Compiler for a Functional Tensor Language,”
-2024.
-[DOI](https://doi.org/10.1145/3656390)
+[R25]Yunchi Lu et al., “TrainVerify: Equivalence-Based Verification for Distributed LLM Training,” 2025. [DOI](https://doi.org/10.1145/3731569.3764850)
 
-[R16] Yann Herklotz and John Wickerson, “Hyperblock Scheduling for
-Verified High-Level Synthesis,” 2024.
-[DOI](https://doi.org/10.1145/3656455)
+[R26]Woosuk Kwon et al., “Efficient Memory Management for Large Language Model Serving with PagedAttention,” 2023. [DOI](https://doi.org/10.1145/3600006.3613165)
 
-[R17] Cormac Flanagan and Patrice Godefroid, “Dynamic Partial-Order
-Reduction for Model Checking Software,” 2005.
-[DOI](https://doi.org/10.1145/1040305.1040315)
+[R27]Trevor Gale, Deepak Narayanan, Cliff Young, and Matei Zaharia, “MegaBlocks: Efficient Sparse Training with Mixture-of-Experts,” 2023. [MLSys](https://proceedings.mlsys.org/paper_files/paper/2023/hash/5a54f79333768effe7e8927bcccffe40-Abstract-mlsys2023.html)
 
-[R18] Troels Henriksen and Martin Elsman, “Towards Size-Dependent Types
-for Array Programming,” 2021.
-[DOI](https://doi.org/10.1145/3460944.3464310)
+[R29]P. J. Ramadge and W. M. Wonham, “Supervisory Control of a Class of Discrete Event Processes,” 1987. [DOI](https://doi.org/10.1137/0325013)
 
-[R19] OpenXLA, “Dynamism in StableHLO.”
-[Specification](https://openxla.org/stablehlo/dynamism)
+[R30]Luca de Alfaro and Thomas A. Henzinger, “Interface Automata,” 2001. [DOI](https://doi.org/10.1145/503209.503226)
 
-[R20] Haichen Shen et al., “Nimble: Efficiently Compiling Dynamic Neural
-Networks for Model Inference,” 2021.
-[MLSys](https://proceedings.mlsys.org/paper_files/paper/2021/hash/5b47430e24a5a1f9fe21f0e8eb814131-Abstract.html)
+[R34]OpenXLA, “StableHLO Specification.” [Specification](https://openxla.org/stablehlo/spec)
 
-[R21] Bo-Yuan Huang et al., “Application-Level Validation of Accelerator
-Designs Using a Formal Software/Hardware Interface,” 2024.
-[DOI](https://doi.org/10.1145/3639051)
+[R35]Jonathan Ragan-Kelley et al., “Halide: A Language and Compiler for Optimizing Parallelism, Locality, and Recomputation in Image Processing Pipelines,” 2013. [DOI](https://doi.org/10.1145/2491956.2462176)
 
-[R22] Rachit Nigam, Pedro Henrique Azevedo de Amorim, and Adrian
-Sampson, “Modular Hardware Design with Timeline Types,” 2023.
-[DOI](https://doi.org/10.1145/3591234)
+[R36]Chris Lattner et al., “MLIR: Scaling Compiler Infrastructure for Domain Specific Computation,” 2021. [DOI](https://doi.org/10.1109/CGO51591.2021.9370308)
 
-[R23] George C. Necula, “Proof-Carrying Code,” 1997.
-[DOI](https://doi.org/10.1145/263699.263712)
+[R37]Tianqi Chen et al., “TVM: An Automated End-to-End Optimizing Compiler for Deep Learning,” 2018. [USENIX](https://www.usenix.org/conference/osdi18/presentation/chen)
 
-[R24] Mohammed Alshiekh et al., “Safe Reinforcement Learning via
-Shielding,” 2018.
-[DOI](https://doi.org/10.1609/aaai.v32i1.11797)
+[R38]Siyuan Feng et al., “TensorIR: An Abstraction for Automatic Tensorized Program Optimization,” 2023. [DOI](https://doi.org/10.1145/3575693.3576933)
 
-[R25] Yunchi Lu et al., “TrainVerify: Equivalence-Based Verification for
-Distributed LLM Training,” 2025.
-[DOI](https://doi.org/10.1145/3731569.3764850)
+[R39]Angshuman Parashar et al., “Timeloop: A Systematic Approach to DNN Accelerator Evaluation,” 2019. [DOI](https://doi.org/10.1109/ISPASS.2019.00042)
 
-[R26] Woosuk Kwon et al., “Efficient Memory Management for Large
-Language Model Serving with PagedAttention,” 2023.
-[DOI](https://doi.org/10.1145/3600006.3613165)
+[R40]Hyoukjun Kwon et al., “Understanding Reuse, Performance, and Hardware Cost of DNN Dataflows: A Data-Centric Approach,” 2019. [DOI](https://doi.org/10.1145/3352460.3358252)
 
-[R27] Trevor Gale, Deepak Narayanan, Cliff Young, and Matei Zaharia,
-“MegaBlocks: Efficient Sparse Training with Mixture-of-Experts,” 2023.
-[MLSys](https://proceedings.mlsys.org/paper_files/paper/2023/hash/5a54f79333768effe7e8927bcccffe40-Abstract-mlsys2023.html)
+[R41]Felice Balarin et al., “Metropolis: An Integrated Electronic System Design Environment,” 2003. [DOI](https://doi.org/10.1109/MC.2003.1193228)
 
-[R28] Patrick Cousot and Radhia Cousot, “Abstract Interpretation: A
-Unified Lattice Model for Static Analysis of Programs by Construction or
-Approximation of Fixpoints,” 1977.
-[DOI](https://doi.org/10.1145/512950.512973)
+[R42]Open SystemC Initiative, “TLM-2.0 Language Reference Manual,” version 2.0.1, 2009. [Language reference manual](https://www.accellera.org/images/downloads/standards/systemc/TLM_2_0_LRM.pdf)
 
-[R29] P. J. Ramadge and W. M. Wonham, “Supervisory Control of a Class
-of Discrete Event Processes,” 1987.
-[DOI](https://doi.org/10.1137/0325013)
+[R43]Hasan Genc et al., “Gemmini: Enabling Systematic Deep-Learning Architecture Evaluation via Full-Stack Integration,” 2021. [DOI](https://doi.org/10.1109/DAC18074.2021.9586216)
 
-[R30] Luca de Alfaro and Thomas A. Henzinger, “Interface Automata,”
-2001.
-[DOI](https://doi.org/10.1145/503209.503226)
+[R44]Aurick Qiao et al., “Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning,” 2021. [USENIX](https://www.usenix.org/conference/osdi21/presentation/qiao)
 
-[R31] Zhengyao Lin, Yi Cai, and Milijana Surbatovich, “Let It Flow: A
-Formally Verified Compilation Framework for Asynchronous Dataflow,” 2026.
-[DOI](https://doi.org/10.1145/3808263)
+[R45]Tutu Ajayi et al., “Toward an Open-Source Digital Flow: First Learnings from the OpenROAD Project,” 2019. [DOI](https://doi.org/10.1145/3316781.3326334)
 
-[R32] Edmund M. Clarke, Orna Grumberg, and David E. Long, “Model
-Checking and Abstraction,” 1994.
-[DOI](https://doi.org/10.1145/186025.186051)
+[R46]Lawrence T. Clark et al., “ASAP7: A 7-nm FinFET Predictive Process Design Kit,” 2016. [DOI](https://doi.org/10.1016/j.mejo.2016.04.006); [official project](https://asap.asu.edu/)
 
-[R33] Lyes Benalycherif and Anthony McIsaac, “A Semantic Condition for
-Data Independence and Applications in Hardware Verification,” 2009.
-[DOI](https://doi.org/10.1016/j.entcs.2009.08.004)
+[R47]Arvind Sridhar et al., “3D-ICE: A Compact Thermal Model for Early-Stage Design of Liquid-Cooled ICs,” 2014. [DOI](https://doi.org/10.1109/TC.2013.127)
 
-<script type="text/javascript" async
-  src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
-</script>
+[R48]Yinxiao Feng and Kaisheng Ma, “Chiplet Actuary: A Quantitative Cost Model and Multi-Chiplet Architecture Exploration,” 2022. [DOI](https://doi.org/10.1145/3489517.3530428)
+
+[R49]Bo-Yuan Huang et al., “Instruction-Level Abstraction: A Uniform Specification for System-on-Chip Verification,” 2019. [DOI](https://doi.org/10.1145/3282444)
+
+[R50]Yi Zhai et al., “Enabling Tensor Language Model to Assist in Generating High-Performance Tensor Programs for Deep Learning,” 2024. [USENIX](https://www.usenix.org/conference/osdi24/presentation/zhai)
+
+[R51]Chris Cummins et al., “Meta Large Language Model Compiler: Foundation Models of Compiler Optimization,” 2024. [Paper](https://arxiv.org/abs/2407.02524)
+
+[R52]Dejan Grubisic, Chris Cummins, Volker Seeker, and Hugh Leather, “Compiler Generated Feedback for Large Language Models,” 2024. [Paper](https://arxiv.org/abs/2403.14714)
+
+[R53]Charles Hong, Sahil Bhatia, Alvin Cheung, and Yakun Sophia Shao, “Autocomp: LLM-Driven Code Optimization for Tensor Accelerators,” 2025. [Paper](https://arxiv.org/abs/2505.18574)
+
+[R54]Anne Ouyang et al., “KernelBench: Can LLMs Write Efficient GPU Kernels?” 2025. [Paper](https://arxiv.org/abs/2502.10517)
+
+[R55]Yue Guan et al., “TritonGym: A Benchmark for Agentic LLM Workflows in Triton GPU Code Generation,” 2026. [OpenReview](https://openreview.net/pdf?id=Htq2loTQTL)
+
+[R56]Yunxiang Zhang et al., “KernelBench-Verified: Do LLM-Generated Kernels Actually Beat PyTorch?” 2026. [Paper](https://arxiv.org/abs/2607.16241)
+
+[R57]Xiaoya Li, Albert Wang, Guoyin Wang, Jiwei Li, and Chris Shum, “CUDA-L1: Improving CUDA Optimization via Contrastive Reinforcement Learning,” 2026. [Paper](https://arxiv.org/abs/2507.14111)
+
+[R58]Anjiang Wei et al., “Astra: A Multi-Agent System for GPU Kernel Performance Optimization,” 2025. [Paper](https://arxiv.org/abs/2509.07506)
+
+[R59]Yuran Ding, Ruobing Han, Xiaofan Zhang, and Xinwei Chen, “PROMPTS: Performance Optimization via Multi-Agent Planning for LLM Training and Serving,” 2026. [Google Research](https://research.google/pubs/prompts-performance-optimization-via-multi-agent-planning-for-llm-training-and-serving/)
+
+[R60]Alexander Novikov et al., “AlphaEvolve: A Coding Agent for Scientific and Algorithmic Discovery,” 2025. [Paper](https://arxiv.org/abs/2506.13131)
+
+[R61]Shanli Xing et al., “FlashInfer-Bench: Building the Virtuous Cycle for AI-Driven LLM Systems,” 2026. [Paper](https://arxiv.org/abs/2601.00227)
+
+[R62]Mingjie Liu et al., “ChipNeMo: Domain-Adapted LLMs for Chip Design,” 2024. [Paper](https://arxiv.org/abs/2311.00176)
+
+[R63]Zhuolun He et al., “ChatEDA: A Large Language Model Powered Autonomous Agent for EDA,” 2024. [Paper](https://arxiv.org/abs/2308.10204)
+
+[R64]Shailja Thakur et al., “AutoChip: Automating HDL Generation Using LLM Feedback,” 2024. [Paper](https://arxiv.org/abs/2311.04887)
+
+[R65]Yonggan Fu et al., “GPT4AIGChip: Towards Next-Generation AI Accelerator Design Automation via Large Language Models,” 2023. [Paper](https://arxiv.org/abs/2309.10730)
+
+[R66]Hanyu Wang et al., “LLM-DSE: Searching Accelerator Parameters with LLM Agents,” 2025. [Paper](https://arxiv.org/abs/2505.12188)
+
+[R67]Amur Ghose, Andrew B. Kahng, Sayak Kundu, and Zhiang Wang, “ORFS-agent: Tool-Using Agents for Chip Design Optimization,” 2026. [Paper](https://arxiv.org/abs/2506.08332)
+
+[R68]Pei-Huan Tsai, Kuan-Lin Chiu, William Baisi, Pin-Yu Chen, and Luca P. Carloni, “HSCO-Bench: An Agent-Driven End-to-End Hardware-Software Co-design Benchmark for Systems-on-Chip,” 2026. [Paper](https://arxiv.org/abs/2605.19399)
+
+[R69]Srivatsan Krishnan et al., “ArchGym: An Open-Source Gymnasium for Machine Learning Assisted Architecture Design,” 2023. [Paper](https://arxiv.org/abs/2306.08888)
+
+[R70]Chen Bai et al., “BOOM-Explorer: RISC-V BOOM Microarchitecture Design Space Exploration Framework,” 2021. [Primary PDF](https://www.cse.cuhk.edu.hk/~byu/papers/C122-ICCAD2021-DSE-BOOM.pdf)
+
+[R71]Lianmin Zheng et al., “Ansor: Generating High-Performance Tensor Programs for Deep Learning,” 2020. [USENIX](https://www.usenix.org/conference/osdi20/presentation/zheng)
+
+[R72]Junru Shao et al., “Tensor Program Optimization with Probabilistic Programs,” 2022. [Paper](https://arxiv.org/abs/2205.13603)
+
+[R73]Kshiteej Mahajan et al., “Themis: Fair and Efficient GPU Cluster Scheduling,” 2020. [USENIX](https://www.usenix.org/conference/nsdi20/presentation/mahajan)
+
+[R74]Basile Clément and Albert Cohen, “End-to-End Translation Validation for the Halide Language,” 2022. [DOI](https://doi.org/10.1145/3527328)
+
+[R75]Seongwon Bang, Seunghyeon Nam, Inwhan Chun, Ho Young Jhoo, and Juneyoung Lee, “SMT-Based Translation Validation for Machine Learning Compiler,” 2022. [DOI](https://doi.org/10.1007/978-3-031-13188-2_19)
+
+[R76]Adam Betts, Nathan Chong, Alastair F. Donaldson, Shaz Qadeer, and Paul Thomson, “GPUVerify: A Verifier for GPU Kernels,” 2012. [DOI](https://doi.org/10.1145/2384616.2384625)
+
+[R77]Haohui Mai et al., “Honeycomb: Secure and Efficient GPU Executions via Static Validation,” 2023. [USENIX](https://www.usenix.org/conference/osdi23/presentation/mai)
+
+[R78]Eunji Jeong et al., “JANUS: Fast and Flexible Deep Learning via Symbolic Graph Execution of Imperative Programs,” 2019. [USENIX](https://www.usenix.org/conference/nsdi19/presentation/jeong)
+
+[R79]Arpan Gujarati et al., “Serving DNNs like Clockwork: Performance Predictability from the Bottom Up,” 2020. [USENIX](https://www.usenix.org/conference/osdi20/presentation/gujarati)
+
+[R80]Andreas Bauer, Martin Leucker, and Christian Schallhart, “Runtime Verification for LTL and TLTL,” 2011. [DOI](https://doi.org/10.1145/2000799.2000800)
+
+[R81]NVIDIA, “TensorRT Engine Compatibility.” [Documentation](https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/engine-compatibility.html)
+
+[R82]Joonwon Choi et al., “Kami: A Platform for High-Level Parametric Hardware Specification and Its Modular Verification,” 2017. [DOI](https://doi.org/10.1145/3110268)
+
+[R83]Robert K. Brayton and Alan Mishchenko, “ABC: An Academic Industrial-Strength Verification Tool,” 2010. [DOI](https://doi.org/10.1007/978-3-642-14295-6_5)
+
+[R84]IEEE, “IEEE Standard for Universal Verification Methodology Language Reference Manual,” IEEE 1800.2-2020. [Standard](https://standards.ieee.org/ieee/1800.2/7567/)
+
+[R85]Accellera Systems Initiative, “Standard for IP Abstraction for Clock and Reset Domain Crossing Integration 1.0,” 2026. [Standard](https://accellera.org/images/downloads/standards/cdc/CDC_Standard_v1.0.pdf)
+
+[R86]Arm, “AMBA AXI and ACE Protocol Specification,” IHI 0022H, 2020. [Specification](https://developer.arm.com/-/media/Arm%20Developer%20Community/PDF/IHI0022H_amba_axi_protocol_spec.pdf)
+
+[R87]Mohamed Shalan and Tim Edwards, “Building OpenLANE: A 130nm OpenROAD-Based Tapeout-Proven Flow,” 2020. [DOI](https://doi.org/10.1145/3400302.3415735)
+
+[R88]Keith Campbell et al., “Hybrid Quick Error Detection: Validation and Debug of SoCs Through High-Level Synthesis,” 2019. [DOI](https://doi.org/10.1109/TCAD.2018.2837103)
