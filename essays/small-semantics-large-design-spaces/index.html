@@ -221,6 +221,43 @@
 <p>Tool-grounded kernel systems show how iterative evidence can reveal structure without transferring correctness authority to the agent. KernelBench couples proposed CUDA or Triton implementations to compilation, randomized correctness tests, execution timing, and optional profiling; its initial study found that frontier models produced kernels that were both correct under its tests and faster than the eager PyTorch reference on fewer than 20% of its 250 workloads, although iterative execution and profiling feedback improved some workflows [R54]. TritonGym makes compile, check, and profile access explicit so model and workflow effects can be compared under a common interface [R55]. Autocomp similarly combines accelerator-specific optimization menus with correctness and performance feedback across three workload categories on two tensor accelerators [R53]. Astra divides an existing SGLang-kernel loop among testing, profiling, planning, and coding roles [R58]. These systems support structured proposal, measurement, and revision over concrete kernel artifacts. They also expose the authority boundary: compilation, finite tests, profiling, and timing establish only their named results, not semantic equivalence. KernelBench-Verified demonstrates the practical consequence by adding hidden input distributions, a stronger Tensor Core baseline, and memory metrics; under that protocol, the best reported single-turn model falls from a 1.43x to a 0.88x geometric-mean speedup, and 28% of its kernels increase peak memory [R56].</p>
 <p>Systems spanning wider layers provide bounded precedents for cross-layer synthesis. PROMPTS uses HLO operator profiles, roofline analysis, documentation, and past optimizations to propose sharding configurations for large-model training and serving [R59]. GPT4AIGChip connects generated accelerator choices to testbenches, high-level synthesis, synthesis estimates, and FPGA measurements, while LLM-DSE coordinates specialized roles over high-level-synthesis directives [R65, R66]. AutoChip uses compiler and simulation feedback to repair RTL, while ChatEDA and ORFS-agent invoke open EDA flows for tasks ranging from script generation to iterative floorplan, placement, clock, and routing parameter tuning [R64, R63, R67]. These systems show that agents can revise domain artifacts through compiler, synthesis, simulation, and physical-design loops. Tensor compiler, kernel, infrastructure, and accelerator results are direct evidence for bounded parts of the proposed stack; generic LLVM, RTL, and physical-design results provide adjacent mechanism evidence until transfer to tensor-system co-design is tested. A passing testbench, an HLS estimate, or an OpenROAD quality-of-result report remains scoped tool evidence, not functional verification, manufacturability, or signoff.</p>
 <p>The same evidence sets a strict complexity claim boundary. Compiler-generated feedback can be less effective than repeated sampling at equal inference budgets [R52]. ArchGym finds that tuned random, Bayesian, evolutionary, and reinforcement-learning methods can become similarly competitive under different sample budgets and hyperparameters, while BOOM-Explorer provides a strong domain-informed, multi-objective Bayesian baseline for microarchitecture exploration [R69, R70]. HSCO-Bench reports that only two of five evaluated frontier models produced benchmark-valid end-to-end FPGA SoC prototypes under its build and test criteria, with substantial unused resources even among successful results [R68]. The surveyed multi-agent comparisons change model calls, context, tool access, or wall time together with role structure [R58, R59, R66]. Public evidence therefore supports bounded, tool-grounded proposal and revision; it does not yet establish that persistent learning or role decomposition reduces effective optimization complexity across the tensor stack. That claim requires matched comparison against domain-specific Bayesian, evolutionary, reinforcement-learning, solver-based, and repeated-sampling baselines.</p>
+<p>The bounded evidence is summarized below.</p>
+<table>
+<thead>
+<tr>
+<th>System family</th>
+<th>What it makes explicit</th>
+<th>Evidence established</th>
+<th>Boundary relevant to this proposal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Domain-specific compiler proposals and structured search</td>
+<td>Compiler-owned pass, schedule, and tensor-program choices; learned proposal distributions and cost-guided exploration</td>
+<td>Task-bounded results report gains from domain training and efficient schedule proposals; Ansor and MetaSchedule provide strong structured non-agentic baselines</td>
+<td>The compiler defines legality and evaluates artifacts; the evidence does not establish semantic correctness, cross-layer transfer, or an agentic advantage under matched budgets</td>
+</tr>
+<tr>
+<td>Tool-grounded compiler, kernel, and accelerator-code iteration</td>
+<td>Candidate code linked to compilation, named tests, profiles, timings, and revision feedback</td>
+<td>Bounded systems demonstrate proposal–check–measure loops and some feedback-driven gains; stronger hidden tests, baselines, and memory accounting materially change reported results</td>
+<td>Each result carries only the authority of its named tool and test distribution; feedback may lose to equal-budget sampling, and finite tests or timings do not prove semantic equivalence</td>
+</tr>
+<tr>
+<td>Infrastructure, accelerator, RTL, and EDA orchestration</td>
+<td>Sharding, high-level-synthesis directives, accelerator templates, RTL repairs, and physical-flow parameters connected to domain tools</td>
+<td>Bounded studies demonstrate artifact construction and revision through compiler, simulation, high-level synthesis, FPGA, and OpenROAD flows</td>
+<td>Direct tensor or infrastructure evidence and adjacent RTL or EDA evidence are not interchangeable; tests, high-level-synthesis estimates, FPGA measurements, and post-route quality-of-result reports do not establish whole-stack composition, manufacturability, or signoff</td>
+</tr>
+<tr>
+<td>Coordination, baselines, and evaluation protocols</td>
+<td>Cooperative specialist roles, tuned non-agentic search, common tool interfaces, and explicit budget and resource accounting</td>
+<td>Role-specialized workflows have been implemented; benchmarks and design-space-exploration studies show that baselines, hyperparameters, tool access, and evaluation protocol can materially affect outcomes</td>
+<td>No benchmark spans the proposed stack, and current comparisons do not isolate role structure under equal information, calls, evaluator cost, and wall time; cooperative roles alone do not imply a strategic game</td>
+</tr>
+</tbody>
+</table>
 <h3 id="32-a-model-grounded-provenance-bearing-knowledge-base">3.2 A Model-Grounded, Provenance-Bearing Knowledge Base</h3>
 <p>Tool feedback can reduce effective optimization complexity only if the optimizer can determine which decision, artifact, target, and validity context each result describes. A knowledge base grounded in the Section 2 world model supplies that connection instead of treating prior runs as undifferentiated prompt history. For a kernel result, it retains the tensor operation and shapes, code revision, compiler flags, GPU and software versions, correctness procedure, timing samples, profiler counters, and numerical tolerance. For an accelerator result, it additionally retains the mapping, array and buffer parameters, high-level-synthesis or simulation version, resource report, and target device. For a physical result, it retains the RTL, netlist, layout, constraints, libraries, rule decks, process design kit, modes and corners, extracted parasitics, floorplan or placement checkpoint, EDA-tool version, raw reports, and the conditions and named checks under which timing, power, area, thermal, congestion, design-rule, or layout-versus-schematic results were produced. This scope lets an agent ask whether two observations support the same dependency or bottleneck hypothesis before reusing either one.</p>
 <p>The knowledge base must keep five content classes distinct because search guidance and acceptance carry different authority. A <strong>declared contract</strong> comes from the world model: workload semantics, variable domains, hard constraints, objectives, and verification obligations. An <strong>unevaluated proposal</strong> records a candidate change, plan, or hypothesis before tool evidence exists. A <strong>raw observation</strong> comes from a named compiler, test, profiler, simulator, synthesis tool, physical-design flow, checker, or measurement and retains provenance and validity context. A <strong>derived empirical hypothesis</strong> relates observations within a stated scope and uncertainty—for example, that a tile-size and memory-scope interaction is active for one shape family, that register pressure limits a kernel, or that clock target and utilization should remain coupled during placement. Finally, a <strong>discharged-obligation or certification record</strong> may be written only by the verification and admission process of Section 4. Agents may use the first four classes to rank proposals or request a discriminating run, but they may not overwrite observations, change evidence class, or issue the fifth class.</p>
@@ -256,6 +293,43 @@
 <p>Different obligations require different checkers. GPUVerify proves modeled race and barrier-divergence properties for supported CUDA and OpenCL kernels, not tensor functional equivalence or numerical accuracy [R76]. Honeycomb statically validates a parameterized family of GPU-binary memory accesses and performs low-cost per-launch argument checks, but its guarantee is memory-region confinement under its AMD ISA and trusted-monitor assumptions [R77]. The Instruction-Level Abstraction supports equivalence checking between software-visible accelerator specifications and finite-state-machine implementations, while Timeline Types check cycle-level composition for statically scheduled hardware [R49, R22]. Kami demonstrates machine-checked modular refinement for parameterized hardware families, and ABC provides combinational and sequential circuit-equivalence and model-checking machinery [R82, R83]. Together these works establish useful semantic, concurrency, timing, and hardware-refinement edges. Their properties compose only if their observation relations, assumptions, artifacts, and trusted bases are compatible.</p>
 <p>Simulation and physical realization provide indispensable but different evidence. Application-level validation through a formal accelerator interface can expose whole-application defects, yet a simulator agrees with RTL only after a separate relation to that exact RTL has been established [R21]. The Universal Verification Methodology standardizes reusable simulation environments, while clock/reset-domain and AXI standards define verification intent and protocol obligations; none proves conformance merely by being adopted [R84, R85, R86]. OpenROAD and OpenLANE demonstrate reproducible paths through synthesis, placement, routing, extraction, timing, and layout checks, but an open flow or predictive process design kit is not commercial foundry signoff [R45, R46, R87]. Post-silicon quick-error-detection methods and deployed TPU measurements show the value of fabricated-device evidence, while remaining bounded to named instruments, devices, workloads, and conditions [R88, R9]. Functional proof, physical release, and measured-silicon qualification therefore remain separate claims.</p>
 <p>Runtime systems expose both the opportunity and its boundary. StableHLO distinguishes bounded, unbounded, input-derived, and data-dependent dynamism; size-dependent array types discharge a useful subset of shape relations before execution [R19, R18]. JANUS guards speculative graph specialization and defers state updates so a failed assumption can fall back to imperative execution [R78]. TensorRT binds serialized engines to runtime versions and device capabilities, illustrating artifact compatibility checks without establishing semantic equivalence [R81]. PagedAttention manages dynamic key-value-cache allocation, and Clockwork uses profiled action windows to reject work predicted to miss a service deadline [R26, R79]. These are concrete late-bound mechanisms, not formal runtime guarantees. MegaBlocks is the counterexample: token values can determine expert routes and work even when surrounding tensor ranks are known [R27]. Finite-prefix runtime verification may also remain inconclusive, while supervisory control and shielding can enforce only properties represented by a sound observable model and an interceptable action set [R80, R29, R24].</p>
+<p>The distinctions among these foundations are summarized below.</p>
+<table>
+<thead>
+<tr>
+<th>Foundation group</th>
+<th>What it represents or checks</th>
+<th>Evidence established</th>
+<th>Boundary relevant to this proposal</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Restricted computation and compiler assurance</td>
+<td>Fixed rates, affine domains and accesses, tensor semantics, rewrite and lowering relations, and bound source–target mappings</td>
+<td>Analytical results for named restrictions; machine-checked semantic-preservation theorems; per-artifact translation-validation results</td>
+<td>Each claim stops at its language, relation, artifacts, assumptions, and supported case; arbitrary kernels, floating point, collectives, runtime faults, hardware, and physical execution remain outside</td>
+</tr>
+<tr>
+<td>Kernel, accelerator, and hardware refinement</td>
+<td>Kernel concurrency, binary memory confinement, software-visible accelerator behavior, cycle and resource interfaces, and RTL or netlist relations</td>
+<td>Property-specific static and type checking, solver-backed verification, equivalence and model checking, launch-predicate checks, and mechanized modular-refinement proofs</td>
+<td>No checker establishes the other properties; observation relations and assumptions must compose, while a timeout or bounded no-counterexample result remains inconclusive</td>
+</tr>
+<tr>
+<td>Simulation, physical release, and measured silicon</td>
+<td>Trace behavior and coverage, protocol and clock/reset intent, physical-flow artifacts and constraints, and device and operating conditions</td>
+<td>Sampled simulation and test; model-, corner-, and collateral-conditioned physical checks; bounded post-silicon detection, profiling, and measurement</td>
+<td>Coverage and standards are not proof; open or predictive flows are not foundry-qualified signoff; measurements neither prove semantics nor generalize beyond named devices and conditions</td>
+</tr>
+<tr>
+<td>Runtime admission, monitoring, enforcement, and fallback</td>
+<td>Residual shapes, queues, allocations, routes, deadlines, compatibility, observable state, permitted actions, and recovery paths</td>
+<td>Restricted shape checks, version and admission checks, finite-prefix monitoring, profile-based refusal, and guard or supervisor enforcement with fallback patterns</td>
+<td>Monitoring and prediction do not enforce safety or prove liveness; safe freedom requires a bounded, observable, version-bound pre-effect guard and checked fallback with progress, a chain not jointly established by the surveyed tensor systems</td>
+</tr>
+</tbody>
+</table>
 <p>The surveyed foundations thus establish strong local proofs, validators, guards, physical analyses, and fallback patterns. The missing capability in the surveyed public evidence is their disciplined composition: one versioned assurance chain that places each obligation at the right horizon, binds every claim to its artifact and validity domain, permits only a compact residual runtime freedom, and invalidates downstream claims when an upstream assumption changes. This is not a claim that industrial flows lack end-to-end verification practice. It is the narrower observation that the joint tensor-specific composition and its complexity benefit have not been established by the evidence reviewed here.</p>
 <h3 id="42-a-three-horizon-compositional-assurance-architecture">4.2 A Three-Horizon Compositional Assurance Architecture</h3>
 <p>We propose a versioned assurance graph over the world model's candidate, accepted/certified, deployed, and runtime spaces. Its nodes are concrete semantic, compiler, runtime, hardware, physical, and silicon artifacts; its edges state the observation or refinement relation, upper assumptions, lower guarantees, compatibility conditions, and evidence required to discharge one obligation. The graph identifies what must be checked and where claims may compose. It does not certify itself: proof kernels and validators discharge formal obligations, admission procedures establish scoped acceptance, release authorities decide fabrication, and named physical or silicon evidence supports physical claims.</p>
@@ -273,80 +347,80 @@
 <p><strong>Can runtime assurance remain both fast and useful?</strong> For one deployed envelope, the guard must be evaluated on worst-case and tail decision latency, state and observation overhead, rejected and corrected actions, fallback frequency and recovery cost, progress, and objective loss relative to an unconstrained oracle and a static safe policy. Hidden, shifted, stale, and adversarial conditions test whether the guard sees every consequential fact before action. If a monitor is often inconclusive, a fallback cannot meet the deadline, or checking overhead removes the benefit of adaptation, the claimed runtime freedom is not useful.</p>
 <p>The first go/no-go experiment should bind one parameterized affine tensor region to one open accelerator or high-level-synthesis target and construct the smallest scoped prototype assurance chain: a workload semantic relation, one validated compiler mapping, explicit resource and concurrency checks, one behavioral-to-RTL obligation, versioned physical-flow evidence, and a launch/runtime guard over a bounded shape and allocation envelope. Across repeated launches and controlled artifact changes, compare it with a matched baseline that validates each concrete instance without reusing the partitioned claims. Measure total and amortized certificate-generation, proof or validation, interface-checking, runtime-guard, invalidation, and recovery costs; also report trusted-base size, guard worst-case latency, fallback behavior, and the evidence invalidated by one compiler, layout, RTL, and target-condition change. Then introduce one payload-dependent routing or unbounded-state variant without changing unrelated machinery. If local claims cannot be composed, if total assurance cost does not improve over the matched baseline, if checking cost still scales with payload-scale histories, or if the runtime guard must repeat the upstream proof, the three-horizon hypothesis fails for that region. This experiment has not been run; the current evidence is the bounded set of foundations surveyed above.</p>
 <h2 id="references">References</h2>
-<p>[R9]Norman P. Jouppi et al., “In-Datacenter Performance Analysis of a Tensor Processing Unit,” 2017. <a href="https://research.google/pubs/in-datacenter-performance-analysis-of-a-tensor-processing-unit/">Google Research</a></p>
-<p>[R10]Edward A. Lee and David G. Messerschmitt, “Static Scheduling of Synchronous Data Flow Programs for Digital Signal Processing,” 1987. <a href="https://doi.org/10.1109/TC.1987.5009446">DOI</a></p>
-<p>[R12]Thomas M. Parks, <em>Bounded Scheduling of Process Networks</em>, 1995. <a href="https://ptolemy.berkeley.edu/publications/papers/95/parksThesis/thesis.pdf">PDF</a></p>
-<p>[R13]Nathanaël Courant and Xavier Leroy, “Verified Code Generation for the Polyhedral Model,” 2021. <a href="https://doi.org/10.1145/3434321">DOI</a></p>
-<p>[R14]Amanda Liu et al., “Verified Tensor-Program Optimization via High-Level Scheduling Rewrites,” 2022. <a href="https://doi.org/10.1145/3498717">DOI</a></p>
-<p>[R15]Amanda Liu, Gilbert Bernstein, Adam Chlipala, and Jonathan Ragan-Kelley, “A Verified Compiler for a Functional Tensor Language,” 2024. <a href="https://doi.org/10.1145/3656390">DOI</a></p>
-<p>[R16]Yann Herklotz and John Wickerson, “Hyperblock Scheduling for Verified High-Level Synthesis,” 2024. <a href="https://doi.org/10.1145/3656455">DOI</a></p>
-<p>[R18]Troels Henriksen and Martin Elsman, “Towards Size-Dependent Types for Array Programming,” 2021. <a href="https://doi.org/10.1145/3460944.3464310">DOI</a></p>
-<p>[R19]OpenXLA, “Dynamism in StableHLO.” <a href="https://openxla.org/stablehlo/dynamism">Specification</a></p>
-<p>[R20]Haichen Shen et al., “Nimble: Efficiently Compiling Dynamic Neural Networks for Model Inference,” 2021. <a href="https://proceedings.mlsys.org/paper_files/paper/2021/hash/5b47430e24a5a1f9fe21f0e8eb814131-Abstract.html">MLSys</a></p>
-<p>[R21]Bo-Yuan Huang et al., “Application-Level Validation of Accelerator Designs Using a Formal Software/Hardware Interface,” 2024. <a href="https://doi.org/10.1145/3639051">DOI</a></p>
-<p>[R22]Rachit Nigam, Pedro Henrique Azevedo de Amorim, and Adrian Sampson, “Modular Hardware Design with Timeline Types,” 2023. <a href="https://doi.org/10.1145/3591234">DOI</a></p>
-<p>[R23]George C. Necula, “Proof-Carrying Code,” 1997. <a href="https://doi.org/10.1145/263699.263712">DOI</a></p>
-<p>[R24]Mohammed Alshiekh et al., “Safe Reinforcement Learning via Shielding,” 2018. <a href="https://doi.org/10.1609/aaai.v32i1.11797">DOI</a></p>
-<p>[R25]Yunchi Lu et al., “TrainVerify: Equivalence-Based Verification for Distributed LLM Training,” 2025. <a href="https://doi.org/10.1145/3731569.3764850">DOI</a></p>
-<p>[R26]Woosuk Kwon et al., “Efficient Memory Management for Large Language Model Serving with PagedAttention,” 2023. <a href="https://doi.org/10.1145/3600006.3613165">DOI</a></p>
-<p>[R27]Trevor Gale, Deepak Narayanan, Cliff Young, and Matei Zaharia, “MegaBlocks: Efficient Sparse Training with Mixture-of-Experts,” 2023. <a href="https://proceedings.mlsys.org/paper_files/paper/2023/hash/5a54f79333768effe7e8927bcccffe40-Abstract-mlsys2023.html">MLSys</a></p>
-<p>[R29]P. J. Ramadge and W. M. Wonham, “Supervisory Control of a Class of Discrete Event Processes,” 1987. <a href="https://doi.org/10.1137/0325013">DOI</a></p>
-<p>[R30]Luca de Alfaro and Thomas A. Henzinger, “Interface Automata,” 2001. <a href="https://doi.org/10.1145/503209.503226">DOI</a></p>
-<p>[R34]OpenXLA, “StableHLO Specification.” <a href="https://openxla.org/stablehlo/spec">Specification</a></p>
-<p>[R35]Jonathan Ragan-Kelley et al., “Halide: A Language and Compiler for Optimizing Parallelism, Locality, and Recomputation in Image Processing Pipelines,” 2013. <a href="https://doi.org/10.1145/2491956.2462176">DOI</a></p>
-<p>[R36]Chris Lattner et al., “MLIR: Scaling Compiler Infrastructure for Domain Specific Computation,” 2021. <a href="https://doi.org/10.1109/CGO51591.2021.9370308">DOI</a></p>
-<p>[R37]Tianqi Chen et al., “TVM: An Automated End-to-End Optimizing Compiler for Deep Learning,” 2018. <a href="https://www.usenix.org/conference/osdi18/presentation/chen">USENIX</a></p>
-<p>[R38]Siyuan Feng et al., “TensorIR: An Abstraction for Automatic Tensorized Program Optimization,” 2023. <a href="https://doi.org/10.1145/3575693.3576933">DOI</a></p>
-<p>[R39]Angshuman Parashar et al., “Timeloop: A Systematic Approach to DNN Accelerator Evaluation,” 2019. <a href="https://doi.org/10.1109/ISPASS.2019.00042">DOI</a></p>
-<p>[R40]Hyoukjun Kwon et al., “Understanding Reuse, Performance, and Hardware Cost of DNN Dataflows: A Data-Centric Approach,” 2019. <a href="https://doi.org/10.1145/3352460.3358252">DOI</a></p>
-<p>[R41]Felice Balarin et al., “Metropolis: An Integrated Electronic System Design Environment,” 2003. <a href="https://doi.org/10.1109/MC.2003.1193228">DOI</a></p>
-<p>[R42]Open SystemC Initiative, “TLM-2.0 Language Reference Manual,” version 2.0.1, 2009. <a href="https://www.accellera.org/images/downloads/standards/systemc/TLM_2_0_LRM.pdf">Language reference manual</a></p>
-<p>[R43]Hasan Genc et al., “Gemmini: Enabling Systematic Deep-Learning Architecture Evaluation via Full-Stack Integration,” 2021. <a href="https://doi.org/10.1109/DAC18074.2021.9586216">DOI</a></p>
-<p>[R44]Aurick Qiao et al., “Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning,” 2021. <a href="https://www.usenix.org/conference/osdi21/presentation/qiao">USENIX</a></p>
-<p>[R45]Tutu Ajayi et al., “Toward an Open-Source Digital Flow: First Learnings from the OpenROAD Project,” 2019. <a href="https://doi.org/10.1145/3316781.3326334">DOI</a></p>
-<p>[R46]Lawrence T. Clark et al., “ASAP7: A 7-nm FinFET Predictive Process Design Kit,” 2016. <a href="https://doi.org/10.1016/j.mejo.2016.04.006">DOI</a>; <a href="https://asap.asu.edu/">official project</a></p>
-<p>[R47]Arvind Sridhar et al., “3D-ICE: A Compact Thermal Model for Early-Stage Design of Liquid-Cooled ICs,” 2014. <a href="https://doi.org/10.1109/TC.2013.127">DOI</a></p>
-<p>[R48]Yinxiao Feng and Kaisheng Ma, “Chiplet Actuary: A Quantitative Cost Model and Multi-Chiplet Architecture Exploration,” 2022. <a href="https://doi.org/10.1145/3489517.3530428">DOI</a></p>
-<p>[R49]Bo-Yuan Huang et al., “Instruction-Level Abstraction: A Uniform Specification for System-on-Chip Verification,” 2019. <a href="https://doi.org/10.1145/3282444">DOI</a></p>
-<p>[R50]Yi Zhai et al., “Enabling Tensor Language Model to Assist in Generating High-Performance Tensor Programs for Deep Learning,” 2024. <a href="https://www.usenix.org/conference/osdi24/presentation/zhai">USENIX</a></p>
-<p>[R51]Chris Cummins et al., “Meta Large Language Model Compiler: Foundation Models of Compiler Optimization,” 2024. <a href="https://arxiv.org/abs/2407.02524">Paper</a></p>
-<p>[R52]Dejan Grubisic, Chris Cummins, Volker Seeker, and Hugh Leather, “Compiler Generated Feedback for Large Language Models,” 2024. <a href="https://arxiv.org/abs/2403.14714">Paper</a></p>
-<p>[R53]Charles Hong, Sahil Bhatia, Alvin Cheung, and Yakun Sophia Shao, “Autocomp: LLM-Driven Code Optimization for Tensor Accelerators,” 2025. <a href="https://arxiv.org/abs/2505.18574">Paper</a></p>
-<p>[R54]Anne Ouyang et al., “KernelBench: Can LLMs Write Efficient GPU Kernels?” 2025. <a href="https://arxiv.org/abs/2502.10517">Paper</a></p>
-<p>[R55]Yue Guan et al., “TritonGym: A Benchmark for Agentic LLM Workflows in Triton GPU Code Generation,” 2026. <a href="https://openreview.net/pdf?id=Htq2loTQTL">OpenReview</a></p>
-<p>[R56]Yunxiang Zhang et al., “KernelBench-Verified: Do LLM-Generated Kernels Actually Beat PyTorch?” 2026. <a href="https://arxiv.org/abs/2607.16241">Paper</a></p>
-<p>[R57]Xiaoya Li, Albert Wang, Guoyin Wang, Jiwei Li, and Chris Shum, “CUDA-L1: Improving CUDA Optimization via Contrastive Reinforcement Learning,” 2026. <a href="https://arxiv.org/abs/2507.14111">Paper</a></p>
-<p>[R58]Anjiang Wei et al., “Astra: A Multi-Agent System for GPU Kernel Performance Optimization,” 2025. <a href="https://arxiv.org/abs/2509.07506">Paper</a></p>
-<p>[R59]Yuran Ding, Ruobing Han, Xiaofan Zhang, and Xinwei Chen, “PROMPTS: Performance Optimization via Multi-Agent Planning for LLM Training and Serving,” 2026. <a href="https://research.google/pubs/prompts-performance-optimization-via-multi-agent-planning-for-llm-training-and-serving/">Google Research</a></p>
-<p>[R60]Alexander Novikov et al., “AlphaEvolve: A Coding Agent for Scientific and Algorithmic Discovery,” 2025. <a href="https://arxiv.org/abs/2506.13131">Paper</a></p>
-<p>[R61]Shanli Xing et al., “FlashInfer-Bench: Building the Virtuous Cycle for AI-Driven LLM Systems,” 2026. <a href="https://arxiv.org/abs/2601.00227">Paper</a></p>
-<p>[R62]Mingjie Liu et al., “ChipNeMo: Domain-Adapted LLMs for Chip Design,” 2024. <a href="https://arxiv.org/abs/2311.00176">Paper</a></p>
-<p>[R63]Zhuolun He et al., “ChatEDA: A Large Language Model Powered Autonomous Agent for EDA,” 2024. <a href="https://arxiv.org/abs/2308.10204">Paper</a></p>
-<p>[R64]Shailja Thakur et al., “AutoChip: Automating HDL Generation Using LLM Feedback,” 2024. <a href="https://arxiv.org/abs/2311.04887">Paper</a></p>
-<p>[R65]Yonggan Fu et al., “GPT4AIGChip: Towards Next-Generation AI Accelerator Design Automation via Large Language Models,” 2023. <a href="https://arxiv.org/abs/2309.10730">Paper</a></p>
-<p>[R66]Hanyu Wang et al., “LLM-DSE: Searching Accelerator Parameters with LLM Agents,” 2025. <a href="https://arxiv.org/abs/2505.12188">Paper</a></p>
-<p>[R67]Amur Ghose, Andrew B. Kahng, Sayak Kundu, and Zhiang Wang, “ORFS-agent: Tool-Using Agents for Chip Design Optimization,” 2026. <a href="https://arxiv.org/abs/2506.08332">Paper</a></p>
-<p>[R68]Pei-Huan Tsai, Kuan-Lin Chiu, William Baisi, Pin-Yu Chen, and Luca P. Carloni, “HSCO-Bench: An Agent-Driven End-to-End Hardware-Software Co-design Benchmark for Systems-on-Chip,” 2026. <a href="https://arxiv.org/abs/2605.19399">Paper</a></p>
-<p>[R69]Srivatsan Krishnan et al., “ArchGym: An Open-Source Gymnasium for Machine Learning Assisted Architecture Design,” 2023. <a href="https://arxiv.org/abs/2306.08888">Paper</a></p>
-<p>[R70]Chen Bai et al., “BOOM-Explorer: RISC-V BOOM Microarchitecture Design Space Exploration Framework,” 2021. <a href="https://www.cse.cuhk.edu.hk/~byu/papers/C122-ICCAD2021-DSE-BOOM.pdf">Primary PDF</a></p>
-<p>[R71]Lianmin Zheng et al., “Ansor: Generating High-Performance Tensor Programs for Deep Learning,” 2020. <a href="https://www.usenix.org/conference/osdi20/presentation/zheng">USENIX</a></p>
-<p>[R72]Junru Shao et al., “Tensor Program Optimization with Probabilistic Programs,” 2022. <a href="https://arxiv.org/abs/2205.13603">Paper</a></p>
-<p>[R73]Kshiteej Mahajan et al., “Themis: Fair and Efficient GPU Cluster Scheduling,” 2020. <a href="https://www.usenix.org/conference/nsdi20/presentation/mahajan">USENIX</a></p>
-<p>[R74]Basile Clément and Albert Cohen, “End-to-End Translation Validation for the Halide Language,” 2022. <a href="https://doi.org/10.1145/3527328">DOI</a></p>
-<p>[R75]Seongwon Bang, Seunghyeon Nam, Inwhan Chun, Ho Young Jhoo, and Juneyoung Lee, “SMT-Based Translation Validation for Machine Learning Compiler,” 2022. <a href="https://doi.org/10.1007/978-3-031-13188-2_19">DOI</a></p>
-<p>[R76]Adam Betts, Nathan Chong, Alastair F. Donaldson, Shaz Qadeer, and Paul Thomson, “GPUVerify: A Verifier for GPU Kernels,” 2012. <a href="https://doi.org/10.1145/2384616.2384625">DOI</a></p>
-<p>[R77]Haohui Mai et al., “Honeycomb: Secure and Efficient GPU Executions via Static Validation,” 2023. <a href="https://www.usenix.org/conference/osdi23/presentation/mai">USENIX</a></p>
-<p>[R78]Eunji Jeong et al., “JANUS: Fast and Flexible Deep Learning via Symbolic Graph Execution of Imperative Programs,” 2019. <a href="https://www.usenix.org/conference/nsdi19/presentation/jeong">USENIX</a></p>
-<p>[R79]Arpan Gujarati et al., “Serving DNNs like Clockwork: Performance Predictability from the Bottom Up,” 2020. <a href="https://www.usenix.org/conference/osdi20/presentation/gujarati">USENIX</a></p>
-<p>[R80]Andreas Bauer, Martin Leucker, and Christian Schallhart, “Runtime Verification for LTL and TLTL,” 2011. <a href="https://doi.org/10.1145/2000799.2000800">DOI</a></p>
-<p>[R81]NVIDIA, “TensorRT Engine Compatibility.” <a href="https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/engine-compatibility.html">Documentation</a></p>
-<p>[R82]Joonwon Choi et al., “Kami: A Platform for High-Level Parametric Hardware Specification and Its Modular Verification,” 2017. <a href="https://doi.org/10.1145/3110268">DOI</a></p>
-<p>[R83]Robert K. Brayton and Alan Mishchenko, “ABC: An Academic Industrial-Strength Verification Tool,” 2010. <a href="https://doi.org/10.1007/978-3-642-14295-6_5">DOI</a></p>
-<p>[R84]IEEE, “IEEE Standard for Universal Verification Methodology Language Reference Manual,” IEEE 1800.2-2020. <a href="https://standards.ieee.org/ieee/1800.2/7567/">Standard</a></p>
-<p>[R85]Accellera Systems Initiative, “Standard for IP Abstraction for Clock and Reset Domain Crossing Integration 1.0,” 2026. <a href="https://accellera.org/images/downloads/standards/cdc/CDC_Standard_v1.0.pdf">Standard</a></p>
-<p>[R86]Arm, “AMBA AXI and ACE Protocol Specification,” IHI 0022H, 2020. <a href="https://developer.arm.com/-/media/Arm%20Developer%20Community/PDF/IHI0022H_amba_axi_protocol_spec.pdf">Specification</a></p>
-<p>[R87]Mohamed Shalan and Tim Edwards, “Building OpenLANE: A 130nm OpenROAD-Based Tapeout-Proven Flow,” 2020. <a href="https://doi.org/10.1145/3400302.3415735">DOI</a></p>
-<p>[R88]Keith Campbell et al., “Hybrid Quick Error Detection: Validation and Debug of SoCs Through High-Level Synthesis,” 2019. <a href="https://doi.org/10.1109/TCAD.2018.2837103">DOI</a></p>
+<p>[R9] Norman P. Jouppi et al., “In-Datacenter Performance Analysis of a Tensor Processing Unit,” 2017. <a href="https://research.google/pubs/in-datacenter-performance-analysis-of-a-tensor-processing-unit/">Google Research</a></p>
+<p>[R10] Edward A. Lee and David G. Messerschmitt, “Static Scheduling of Synchronous Data Flow Programs for Digital Signal Processing,” 1987. <a href="https://doi.org/10.1109/TC.1987.5009446">DOI</a></p>
+<p>[R12] Thomas M. Parks, <em>Bounded Scheduling of Process Networks</em>, 1995. <a href="https://ptolemy.berkeley.edu/publications/papers/95/parksThesis/thesis.pdf">PDF</a></p>
+<p>[R13] Nathanaël Courant and Xavier Leroy, “Verified Code Generation for the Polyhedral Model,” 2021. <a href="https://doi.org/10.1145/3434321">DOI</a></p>
+<p>[R14] Amanda Liu et al., “Verified Tensor-Program Optimization via High-Level Scheduling Rewrites,” 2022. <a href="https://doi.org/10.1145/3498717">DOI</a></p>
+<p>[R15] Amanda Liu, Gilbert Bernstein, Adam Chlipala, and Jonathan Ragan-Kelley, “A Verified Compiler for a Functional Tensor Language,” 2024. <a href="https://doi.org/10.1145/3656390">DOI</a></p>
+<p>[R16] Yann Herklotz and John Wickerson, “Hyperblock Scheduling for Verified High-Level Synthesis,” 2024. <a href="https://doi.org/10.1145/3656455">DOI</a></p>
+<p>[R18] Troels Henriksen and Martin Elsman, “Towards Size-Dependent Types for Array Programming,” 2021. <a href="https://doi.org/10.1145/3460944.3464310">DOI</a></p>
+<p>[R19] OpenXLA, “Dynamism in StableHLO.” <a href="https://openxla.org/stablehlo/dynamism">Specification</a></p>
+<p>[R20] Haichen Shen et al., “Nimble: Efficiently Compiling Dynamic Neural Networks for Model Inference,” 2021. <a href="https://proceedings.mlsys.org/paper_files/paper/2021/hash/5b47430e24a5a1f9fe21f0e8eb814131-Abstract.html">MLSys</a></p>
+<p>[R21] Bo-Yuan Huang et al., “Application-Level Validation of Accelerator Designs Using a Formal Software/Hardware Interface,” 2024. <a href="https://doi.org/10.1145/3639051">DOI</a></p>
+<p>[R22] Rachit Nigam, Pedro Henrique Azevedo de Amorim, and Adrian Sampson, “Modular Hardware Design with Timeline Types,” 2023. <a href="https://doi.org/10.1145/3591234">DOI</a></p>
+<p>[R23] George C. Necula, “Proof-Carrying Code,” 1997. <a href="https://doi.org/10.1145/263699.263712">DOI</a></p>
+<p>[R24] Mohammed Alshiekh et al., “Safe Reinforcement Learning via Shielding,” 2018. <a href="https://doi.org/10.1609/aaai.v32i1.11797">DOI</a></p>
+<p>[R25] Yunchi Lu et al., “TrainVerify: Equivalence-Based Verification for Distributed LLM Training,” 2025. <a href="https://doi.org/10.1145/3731569.3764850">DOI</a></p>
+<p>[R26] Woosuk Kwon et al., “Efficient Memory Management for Large Language Model Serving with PagedAttention,” 2023. <a href="https://doi.org/10.1145/3600006.3613165">DOI</a></p>
+<p>[R27] Trevor Gale, Deepak Narayanan, Cliff Young, and Matei Zaharia, “MegaBlocks: Efficient Sparse Training with Mixture-of-Experts,” 2023. <a href="https://proceedings.mlsys.org/paper_files/paper/2023/hash/5a54f79333768effe7e8927bcccffe40-Abstract-mlsys2023.html">MLSys</a></p>
+<p>[R29] P. J. Ramadge and W. M. Wonham, “Supervisory Control of a Class of Discrete Event Processes,” 1987. <a href="https://doi.org/10.1137/0325013">DOI</a></p>
+<p>[R30] Luca de Alfaro and Thomas A. Henzinger, “Interface Automata,” 2001. <a href="https://doi.org/10.1145/503209.503226">DOI</a></p>
+<p>[R34] OpenXLA, “StableHLO Specification.” <a href="https://openxla.org/stablehlo/spec">Specification</a></p>
+<p>[R35] Jonathan Ragan-Kelley et al., “Halide: A Language and Compiler for Optimizing Parallelism, Locality, and Recomputation in Image Processing Pipelines,” 2013. <a href="https://doi.org/10.1145/2491956.2462176">DOI</a></p>
+<p>[R36] Chris Lattner et al., “MLIR: Scaling Compiler Infrastructure for Domain Specific Computation,” 2021. <a href="https://doi.org/10.1109/CGO51591.2021.9370308">DOI</a></p>
+<p>[R37] Tianqi Chen et al., “TVM: An Automated End-to-End Optimizing Compiler for Deep Learning,” 2018. <a href="https://www.usenix.org/conference/osdi18/presentation/chen">USENIX</a></p>
+<p>[R38] Siyuan Feng et al., “TensorIR: An Abstraction for Automatic Tensorized Program Optimization,” 2023. <a href="https://doi.org/10.1145/3575693.3576933">DOI</a></p>
+<p>[R39] Angshuman Parashar et al., “Timeloop: A Systematic Approach to DNN Accelerator Evaluation,” 2019. <a href="https://doi.org/10.1109/ISPASS.2019.00042">DOI</a></p>
+<p>[R40] Hyoukjun Kwon et al., “Understanding Reuse, Performance, and Hardware Cost of DNN Dataflows: A Data-Centric Approach,” 2019. <a href="https://doi.org/10.1145/3352460.3358252">DOI</a></p>
+<p>[R41] Felice Balarin et al., “Metropolis: An Integrated Electronic System Design Environment,” 2003. <a href="https://doi.org/10.1109/MC.2003.1193228">DOI</a></p>
+<p>[R42] Open SystemC Initiative, “TLM-2.0 Language Reference Manual,” version 2.0.1, 2009. <a href="https://www.accellera.org/images/downloads/standards/systemc/TLM_2_0_LRM.pdf">Language reference manual</a></p>
+<p>[R43] Hasan Genc et al., “Gemmini: Enabling Systematic Deep-Learning Architecture Evaluation via Full-Stack Integration,” 2021. <a href="https://doi.org/10.1109/DAC18074.2021.9586216">DOI</a></p>
+<p>[R44] Aurick Qiao et al., “Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning,” 2021. <a href="https://www.usenix.org/conference/osdi21/presentation/qiao">USENIX</a></p>
+<p>[R45] Tutu Ajayi et al., “Toward an Open-Source Digital Flow: First Learnings from the OpenROAD Project,” 2019. <a href="https://doi.org/10.1145/3316781.3326334">DOI</a></p>
+<p>[R46] Lawrence T. Clark et al., “ASAP7: A 7-nm FinFET Predictive Process Design Kit,” 2016. <a href="https://doi.org/10.1016/j.mejo.2016.04.006">DOI</a>; <a href="https://asap.asu.edu/">official project</a></p>
+<p>[R47] Arvind Sridhar et al., “3D-ICE: A Compact Thermal Model for Early-Stage Design of Liquid-Cooled ICs,” 2014. <a href="https://doi.org/10.1109/TC.2013.127">DOI</a></p>
+<p>[R48] Yinxiao Feng and Kaisheng Ma, “Chiplet Actuary: A Quantitative Cost Model and Multi-Chiplet Architecture Exploration,” 2022. <a href="https://doi.org/10.1145/3489517.3530428">DOI</a></p>
+<p>[R49] Bo-Yuan Huang et al., “Instruction-Level Abstraction: A Uniform Specification for System-on-Chip Verification,” 2019. <a href="https://doi.org/10.1145/3282444">DOI</a></p>
+<p>[R50] Yi Zhai et al., “Enabling Tensor Language Model to Assist in Generating High-Performance Tensor Programs for Deep Learning,” 2024. <a href="https://www.usenix.org/conference/osdi24/presentation/zhai">USENIX</a></p>
+<p>[R51] Chris Cummins et al., “Meta Large Language Model Compiler: Foundation Models of Compiler Optimization,” 2024. <a href="https://arxiv.org/abs/2407.02524">Paper</a></p>
+<p>[R52] Dejan Grubisic, Chris Cummins, Volker Seeker, and Hugh Leather, “Compiler Generated Feedback for Large Language Models,” 2024. <a href="https://arxiv.org/abs/2403.14714">Paper</a></p>
+<p>[R53] Charles Hong, Sahil Bhatia, Alvin Cheung, and Yakun Sophia Shao, “Autocomp: LLM-Driven Code Optimization for Tensor Accelerators,” 2025. <a href="https://arxiv.org/abs/2505.18574">Paper</a></p>
+<p>[R54] Anne Ouyang et al., “KernelBench: Can LLMs Write Efficient GPU Kernels?” 2025. <a href="https://arxiv.org/abs/2502.10517">Paper</a></p>
+<p>[R55] Yue Guan et al., “TritonGym: A Benchmark for Agentic LLM Workflows in Triton GPU Code Generation,” 2026. <a href="https://openreview.net/pdf?id=Htq2loTQTL">OpenReview</a></p>
+<p>[R56] Yunxiang Zhang et al., “KernelBench-Verified: Do LLM-Generated Kernels Actually Beat PyTorch?” 2026. <a href="https://arxiv.org/abs/2607.16241">Paper</a></p>
+<p>[R57] Xiaoya Li, Albert Wang, Guoyin Wang, Jiwei Li, and Chris Shum, “CUDA-L1: Improving CUDA Optimization via Contrastive Reinforcement Learning,” 2026. <a href="https://arxiv.org/abs/2507.14111">Paper</a></p>
+<p>[R58] Anjiang Wei et al., “Astra: A Multi-Agent System for GPU Kernel Performance Optimization,” 2025. <a href="https://arxiv.org/abs/2509.07506">Paper</a></p>
+<p>[R59] Yuran Ding, Ruobing Han, Xiaofan Zhang, and Xinwei Chen, “PROMPTS: Performance Optimization via Multi-Agent Planning for LLM Training and Serving,” 2026. <a href="https://research.google/pubs/prompts-performance-optimization-via-multi-agent-planning-for-llm-training-and-serving/">Google Research</a></p>
+<p>[R60] Alexander Novikov et al., “AlphaEvolve: A Coding Agent for Scientific and Algorithmic Discovery,” 2025. <a href="https://arxiv.org/abs/2506.13131">Paper</a></p>
+<p>[R61] Shanli Xing et al., “FlashInfer-Bench: Building the Virtuous Cycle for AI-Driven LLM Systems,” 2026. <a href="https://arxiv.org/abs/2601.00227">Paper</a></p>
+<p>[R62] Mingjie Liu et al., “ChipNeMo: Domain-Adapted LLMs for Chip Design,” 2024. <a href="https://arxiv.org/abs/2311.00176">Paper</a></p>
+<p>[R63] Zhuolun He et al., “ChatEDA: A Large Language Model Powered Autonomous Agent for EDA,” 2024. <a href="https://arxiv.org/abs/2308.10204">Paper</a></p>
+<p>[R64] Shailja Thakur et al., “AutoChip: Automating HDL Generation Using LLM Feedback,” 2024. <a href="https://arxiv.org/abs/2311.04887">Paper</a></p>
+<p>[R65] Yonggan Fu et al., “GPT4AIGChip: Towards Next-Generation AI Accelerator Design Automation via Large Language Models,” 2023. <a href="https://arxiv.org/abs/2309.10730">Paper</a></p>
+<p>[R66] Hanyu Wang et al., “LLM-DSE: Searching Accelerator Parameters with LLM Agents,” 2025. <a href="https://arxiv.org/abs/2505.12188">Paper</a></p>
+<p>[R67] Amur Ghose, Andrew B. Kahng, Sayak Kundu, and Zhiang Wang, “ORFS-agent: Tool-Using Agents for Chip Design Optimization,” 2026. <a href="https://arxiv.org/abs/2506.08332">Paper</a></p>
+<p>[R68] Pei-Huan Tsai, Kuan-Lin Chiu, William Baisi, Pin-Yu Chen, and Luca P. Carloni, “HSCO-Bench: An Agent-Driven End-to-End Hardware-Software Co-design Benchmark for Systems-on-Chip,” 2026. <a href="https://arxiv.org/abs/2605.19399">Paper</a></p>
+<p>[R69] Srivatsan Krishnan et al., “ArchGym: An Open-Source Gymnasium for Machine Learning Assisted Architecture Design,” 2023. <a href="https://arxiv.org/abs/2306.08888">Paper</a></p>
+<p>[R70] Chen Bai et al., “BOOM-Explorer: RISC-V BOOM Microarchitecture Design Space Exploration Framework,” 2021. <a href="https://www.cse.cuhk.edu.hk/~byu/papers/C122-ICCAD2021-DSE-BOOM.pdf">Primary PDF</a></p>
+<p>[R71] Lianmin Zheng et al., “Ansor: Generating High-Performance Tensor Programs for Deep Learning,” 2020. <a href="https://www.usenix.org/conference/osdi20/presentation/zheng">USENIX</a></p>
+<p>[R72] Junru Shao et al., “Tensor Program Optimization with Probabilistic Programs,” 2022. <a href="https://arxiv.org/abs/2205.13603">Paper</a></p>
+<p>[R73] Kshiteej Mahajan et al., “Themis: Fair and Efficient GPU Cluster Scheduling,” 2020. <a href="https://www.usenix.org/conference/nsdi20/presentation/mahajan">USENIX</a></p>
+<p>[R74] Basile Clément and Albert Cohen, “End-to-End Translation Validation for the Halide Language,” 2022. <a href="https://doi.org/10.1145/3527328">DOI</a></p>
+<p>[R75] Seongwon Bang, Seunghyeon Nam, Inwhan Chun, Ho Young Jhoo, and Juneyoung Lee, “SMT-Based Translation Validation for Machine Learning Compiler,” 2022. <a href="https://doi.org/10.1007/978-3-031-13188-2_19">DOI</a></p>
+<p>[R76] Adam Betts, Nathan Chong, Alastair F. Donaldson, Shaz Qadeer, and Paul Thomson, “GPUVerify: A Verifier for GPU Kernels,” 2012. <a href="https://doi.org/10.1145/2384616.2384625">DOI</a></p>
+<p>[R77] Haohui Mai et al., “Honeycomb: Secure and Efficient GPU Executions via Static Validation,” 2023. <a href="https://www.usenix.org/conference/osdi23/presentation/mai">USENIX</a></p>
+<p>[R78] Eunji Jeong et al., “JANUS: Fast and Flexible Deep Learning via Symbolic Graph Execution of Imperative Programs,” 2019. <a href="https://www.usenix.org/conference/nsdi19/presentation/jeong">USENIX</a></p>
+<p>[R79] Arpan Gujarati et al., “Serving DNNs like Clockwork: Performance Predictability from the Bottom Up,” 2020. <a href="https://www.usenix.org/conference/osdi20/presentation/gujarati">USENIX</a></p>
+<p>[R80] Andreas Bauer, Martin Leucker, and Christian Schallhart, “Runtime Verification for LTL and TLTL,” 2011. <a href="https://doi.org/10.1145/2000799.2000800">DOI</a></p>
+<p>[R81] NVIDIA, “TensorRT Engine Compatibility.” <a href="https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/engine-compatibility.html">Documentation</a></p>
+<p>[R82] Joonwon Choi et al., “Kami: A Platform for High-Level Parametric Hardware Specification and Its Modular Verification,” 2017. <a href="https://doi.org/10.1145/3110268">DOI</a></p>
+<p>[R83] Robert K. Brayton and Alan Mishchenko, “ABC: An Academic Industrial-Strength Verification Tool,” 2010. <a href="https://doi.org/10.1007/978-3-642-14295-6_5">DOI</a></p>
+<p>[R84] IEEE, “IEEE Standard for Universal Verification Methodology Language Reference Manual,” IEEE 1800.2-2020. <a href="https://standards.ieee.org/ieee/1800.2/7567/">Standard</a></p>
+<p>[R85] Accellera Systems Initiative, “Standard for IP Abstraction for Clock and Reset Domain Crossing Integration 1.0,” 2026. <a href="https://accellera.org/images/downloads/standards/cdc/CDC_Standard_v1.0.pdf">Standard</a></p>
+<p>[R86] Arm, “AMBA AXI and ACE Protocol Specification,” IHI 0022H, 2020. <a href="https://developer.arm.com/-/media/Arm%20Developer%20Community/PDF/IHI0022H_amba_axi_protocol_spec.pdf">Specification</a></p>
+<p>[R87] Mohamed Shalan and Tim Edwards, “Building OpenLANE: A 130nm OpenROAD-Based Tapeout-Proven Flow,” 2020. <a href="https://doi.org/10.1145/3400302.3415735">DOI</a></p>
+<p>[R88] Keith Campbell et al., “Hybrid Quick Error Detection: Validation and Debug of SoCs Through High-Level Synthesis,” 2019. <a href="https://doi.org/10.1109/TCAD.2018.2837103">DOI</a></p>
 </main>
 <script type="text/javascript" async
   src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML">
