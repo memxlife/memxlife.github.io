@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An exploratory position paper on discovering, sharing, and crediting research contributions through a peer-to-peer AI-assisted network.">
+  <title>From Rejecting Papers to Discovering Value: Rethinking Scientific Publishing in the Age of AI | Li Shang</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #1f2933;
+      --muted: #52606d;
+      --line: #d9e2ec;
+      --accent: #075985;
+      --paper: #ffffff;
+      --wash: #f5f7fa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--wash);
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 18px;
+      line-height: 1.7;
+    }
+    main {
+      width: min(920px, calc(100% - 32px));
+      margin: 32px auto;
+      padding: clamp(24px, 5vw, 64px);
+      background: var(--paper);
+      box-shadow: 0 10px 40px rgba(31, 41, 51, 0.08);
+    }
+    .home {
+      display: inline-block;
+      margin-bottom: 24px;
+      color: var(--accent);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      text-decoration: none;
+    }
+    h1, h2, h3, h4 {
+      color: #102a43;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.22;
+    }
+    h1 { margin-top: 0; font-size: clamp(2rem, 5vw, 3.2rem); }
+    h2 { margin-top: 2.4em; padding-bottom: 0.25em; border-bottom: 1px solid var(--line); }
+    h3 { margin-top: 2em; }
+    h4 { margin-top: 1.6em; }
+    a { color: var(--accent); }
+    blockquote {
+      margin: 1.5em 0;
+      padding: 0.35em 1.25em;
+      border-left: 4px solid #38bdf8;
+      background: #f0f9ff;
+    }
+    li { margin: 0.35em 0; }
+    table {
+      display: block;
+      width: 100%;
+      margin: 1.5em 0;
+      overflow-x: auto;
+      border-collapse: collapse;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.9em;
+      line-height: 1.45;
+      -webkit-overflow-scrolling: touch;
+    }
+    th, td {
+      min-width: 12rem;
+      padding: 0.65em 0.75em;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #f0f4f8; }
+    .math-display {
+      max-width: 100%;
+      margin: 1.35em 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 0.25em 0 0.5em;
+      text-align: center;
+      -webkit-overflow-scrolling: touch;
+    }
+    .MJXc-display, .MathJax_Display {
+      max-width: 100%;
+      margin: 0 !important;
+    }
+    @media (max-width: 640px) {
+      body { font-size: 16px; }
+      main { width: 100%; margin: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <a class="home" href="../../index.html">← Li Shang</a>
+<article>
+<h1 id="from-rejecting-papers-to-discovering-value-rethinking-scientific-publishing-in-the-age-of-ai">From Rejecting Papers to Discovering Value: Rethinking Scientific Publishing in the Age of AI</h1>
+<p><em>Position paper draft — Li Shang and Claude</em></p>
+<h2 id="1-the-problem">1. The problem</h2>
+<p>The conference system was built for a world where good research was scarce. Out of a hundred submissions, perhaps twenty were worth reading. The whole machinery of peer review existed to find those twenty, which in practice meant finding reasons to reject the other eighty. Because the process was mostly about saying no, it had to be anonymous, double-blind, and defensive. Rejection was the default, and the system was tuned for it.</p>
+<p>That world is gone. Today most papers are written by a human working together with a large model. Producing a plausible, well-formatted paper is no longer hard. Submission counts have exploded, and the review pool has not kept up. Reviewers, overloaded, increasingly hand the paper to an AI, skim the output, and assign the safe score. A score of two, "weak reject," is safe because most papers will be rejected anyway. The resulting reviews look reasonable on the surface but often rest on a shallow reading and contain basic misunderstandings of the work.</p>
+<p>The result is a system that consumes enormous amounts of researcher time and returns very little. Authors spend months on submissions that are judged in minutes. Good ideas are rejected on noise. Reviewers learn nothing. The community learns nothing. And the actual question that matters, "what in this work is useful to someone else?", is never asked.</p>
+<h2 id="2-what-has-actually-changed">2. What has actually changed</h2>
+<p>The scarce resource has moved. Before AI, the scarce resource was the creation of good knowledge. After AI, creation is cheap. What is scarce now is discovery: finding the piece of real value inside each work and getting it to the person who can use it.</p>
+<p>This matters because human-plus-AI papers are not interchangeable. Every author brings a different question, a different prior, a different way of steering the model. The outputs therefore carry different, often small, but genuine pieces of new understanding. The old system, built to throw away eighty percent of submissions, throws away most of these pieces too. A system built for discovery would keep them.</p>
+<p>Most of these papers already exist in public on arXiv. The bottleneck is not publication. The bottleneck is that nobody reads them, nobody extracts what is useful, and nobody connects them to the people and the later work that could build on them.</p>
+<h2 id="3-the-new-value-proposition">3. The new value proposition</h2>
+<p>We propose replacing the question "should this paper be accepted?" with the question "what does this paper contribute, and who should know about it?"</p>
+<p>This changes what the community does with a paper:</p>
+<ul>
+<li>Instead of filtering, we extract. For each paper, an AI reads it and produces a clear statement of what is new, what it builds on, and what it could be used for.</li>
+<li>Instead of hiding papers behind a gate, we route them. Each extracted contribution is pushed to researchers whose past and current work suggests they can use it.</li>
+<li>Instead of a one-time verdict, we track use. When a later work actually builds on an earlier one, that connection is recorded. Credit flows along real lines of influence, not along the opinions of three tired reviewers.</li>
+</ul>
+<h2 id="4-why-this-benefits-everyone">4. Why this benefits everyone</h2>
+<p>For individual researchers: your work gets read, by the right people, for what it actually contains. You are rewarded when your idea helps someone, which is the thing you wanted in the first place. You also receive a steady flow of relevant ideas from others, matched to your interests, instead of hoping to find them by chance.</p>
+<p>For the community: knowledge moves faster. Duplicate work is caught early, because an author is told when a similar idea already exists and can cite it and improve on it rather than reinvent it. Disagreements become public, recorded, and useful, instead of being buried in private review forms.</p>
+<p>For value creation overall: researcher time goes into research, not into rewriting the same paper for the third venue. The energy currently spent on rejection goes into connection. The system grows more valuable as more people join, because every new paper adds both new knowledge and new links.</p>
+<h2 id="5-the-proposed-system">5. The proposed system</h2>
+<p>The system is built in three layers. At the bottom sits a reputation-based record that nobody can alter after the fact. In the middle sits value extraction: for each paper, what is new and useful. On top sits connection: matching that value to the people who can use it, and recording when one work actually helps another, for example by inspiring a new paper or improving work already in progress.</p>
+<p>There is no central server. Every participant runs a node on their own machine and their own AI, holds a copy of the record, and does their own share of the reading and matching. The system has no operator to pay, no operator to trust, and no single point that can be shut down or captured.</p>
+<p>The system has five parts.</p>
+<p><strong>Extraction.</strong> Each paper on arXiv is processed by an AI that writes a plain, structured summary of its contributions. Authors can run this step themselves with their own AI, using a shared, open skill, so the system does not depend on a single central model.</p>
+<p><strong>Interest modeling.</strong> Each researcher's past and current interests are inferred from their public record, for example a Google Scholar profile. This solves the cold-start problem: the system knows who to notify from day one.</p>
+<p><strong>Routing.</strong> Extracted contributions are matched against interest profiles and delivered to the researchers most likely to benefit.</p>
+<p><strong>Connection tracking.</strong> When a new paper appears, the AI compares its extracted contributions with existing ones. If it finds overlap, it tells the author: here is prior work similar to yours, consider citing it and building on it. If the author's work does build on an earlier one, that link is recorded. A recorded link, backed by a real downstream paper, is the unit of credit. A bare endorsement with no downstream work carries little weight, which makes credit hard to fake.</p>
+<p><strong>A permanent, open record.</strong> All extractions, links, and disputes are stored in a tamper-proof, append-only ledger. Anyone can re-run the AI analysis and check a judgment. If an author disagrees with an assessment, they can respond, with their own AI if they wish, and the exchange becomes part of the public record. Disputes need not be settled. An honest, permanent, visible disagreement is more useful to the community than a hidden score.</p>
+<h2 id="scalability-and-cost">Scalability and cost</h2>
+<p>The only expensive step is having an AI read a full paper. Everything else, storing summaries, comparing them, and sending notifications, is cheap. So the design rule is: read each paper once, in full, at the edge, and never again in the middle.</p>
+<p><strong>Where the cost goes.</strong> Reading one paper with a large model costs a few cents. Two hundred thousand new papers a year on arXiv therefore cost in the order of ten thousand dollars a year in total if every paper is read once. Spread across thousands of participants, each reading their own papers and the few routed to them, the cost per person is close to zero.</p>
+<p><strong>Where the bottleneck is.</strong> Comparing every new paper against every existing one does not scale: the number of pairs grows with the square of the number of papers. The fix is two-stage matching. A cheap step turns each summary into a compact vector and finds the few dozen nearest neighbours. Only those candidates are then compared by a large model. This keeps the expensive step proportional to the number of papers, not the number of pairs.</p>
+<p><strong>Finding the right people: two-level matching.</strong> Matching happens in two stages so that the expensive step is rarely run. At the first level, every participant publishes a compact fingerprint of their research interests, built from their public record such as Google Scholar and updated each time they publish. These fingerprints are organised as a reverse index keyed by topic: each topic points to the people interested in it, and a person with several interests appears under each. When a new paper arrives, its node looks only inside the matching topics and pulls out a few dozen likely-interested people. At the second level, each of those people's individual papers carries a much richer fingerprint. The new paper is compared against these in detail to find the true idea-to-idea connections, for example that this result would strengthen that method, or that this method already solves part of this problem. The first level is cheap and runs over the whole network; the second is expensive and runs only over the shortlist.</p>
+<p><strong>Why fully peer-to-peer works here.</strong> The ledger needs no proof-of-work. Entries are signed by a named researcher, and trust rests on that name and its public history. The ledger is append-only and replicated across nodes, like a shared git history. Any node can re-run the extraction or the comparison for any entry and post a disagreement; nothing needs a central referee. The skill that does the reading runs inside whatever AI each person already uses, so there is no shared model to host either.</p>
+<p><strong>What this means in practice.</strong> Fixed infrastructure cost: none. Per-participant cost: the AI calls for their own papers plus a handful of routed comparisons, well under the price of one conference registration per year. The system gets cheaper per paper as more people join, because each new node adds reading capacity along with new papers.</p>
+<h2 id="implementation-risks-and-how-we-handle-them">Implementation risks and how we handle them</h2>
+<p><strong>Cold start.</strong> With few nodes, matches are poor and nobody sees value. We launch inside one community where we can seed enough participants at once, for example a single subfield with its existing collaborators and groups, and expand from there.</p>
+<p><strong>Availability.</strong> Many nodes will be laptops that go offline. A small number of volunteer always-on relay nodes, run by universities, hold the ledger and queue messages. Offline nodes catch up when they return. No relay is special; any node can become one.</p>
+<p><strong>Identity.</strong> Reputation only works if a node provably belongs to a real researcher. Nodes register with an ORCID or institutional identity, and the first entry a node may post is a paper that person actually authored.</p>
+<p><strong>Consistency across AIs.</strong> Different models produce slightly different summaries of the same paper. The extraction skill enforces a strict output schema, and a shared test set of papers lets anyone check how closely different models agree. Some noise is expected and is tolerable because every entry can be re-run and challenged.</p>
+<p><strong>Spam and flooding.</strong> Posting is cheap, so a bad actor could flood the network. New nodes may post only a few entries until other nodes link to their work, and every node ignores entries from reputations below a threshold it sets itself. Because entries are signed, flooding costs the attacker their own name.</p>
+<p><strong>Hidden costs.</strong> The one cost that could grow unexpectedly is second-level matching if shortlists are too long. We cap the shortlist size and let each node set its own budget, so no participant pays more than they choose to.</p>
+<h2 id="6-objections-and-responses">6. Objections and responses</h2>
+<p><em>Won't people game the credit?</em> Credit is tied to recorded downstream use, not to votes. To fake credit you would have to fake a chain of real papers building on yours, which is far harder than buying stars or citations.</p>
+<p><em>Can an AI judge similarity and contribution fairly?</em> Not perfectly. But its judgment is written down, reproducible, and open to challenge, which is more than can be said for today's anonymous reviews. Over time, the public record of challenges will improve the extraction and matching models.</p>
+<p><em>Who runs this?</em> The extraction skill is open and runs on each user's own AI. The ledger is shared and verifiable. No single institution owns the judgment, which is the point.</p>
+<h2 id="7-call-to-participate">7. Call to participate</h2>
+<p>We propose to build this in the open. The first step is the extraction skill and a small routing service for one subfield, with Google Scholar profiles as the interest source. Researchers can join by running the skill on their own papers and by reporting which routed contributions actually helped them. Each contribution grows the record, and the record is what makes the system trustworthy.</p>
+<p>The conference model served its time. It was the right tool when good ideas were rare. They are not rare anymore. What is rare is finding them. We should build for that.</p>
+</article>
+</main>
+</body>
+</html>
